@@ -12,5 +12,7 @@ idf_component_register(
     "include"
     "include/tasks/include"
     "include/managers/include"
+  PRIV_REQUIRES
+    # dotenv
 )
 
