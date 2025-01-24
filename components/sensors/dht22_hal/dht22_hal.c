@@ -61,27 +61,6 @@ static esp_err_t priv_dht22_gpio_init(uint8_t data_io)
 }
 
 /**
- * @brief Reset function for the DHT22 sensor.
- *
- * Attempts to reinitialize the sensor by reconfiguring the GPIO pin and
- * restoring the initial state. Called by the error handler during reset.
- */
-static void priv_dht22_reset(void)
-{
-  /* Reconfigure GPIO pin */
-  esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
-  if (ret != ESP_OK) {
-    ESP_LOGE(dht22_tag, "Failed to reconfigure GPIO during reset: %s",
-             esp_err_to_name(ret));
-    return;
-  }
-
-  /* Set initial pin state */
-  gpio_set_level(dht22_data_io, 1);
-  vTaskDelay(pdMS_TO_TICKS(100));
-}
-
-/**
  * @brief Waits for a specific GPIO level and measures the duration.
  *
  * Monitors a GPIO pin connected to the DHT22 sensor, waiting for it to reach 
@@ -310,28 +289,28 @@ char *dht22_data_to_json(const dht22_data_t *data)
 esp_err_t dht22_init(void *sensor_data)
 {
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  ESP_LOGI(dht22_tag, "Starting DHT22 Configuration");
+  ESP_LOGI(dht22_tag, "Starting Configuration");
 
-  /* Initialize error handler */
-  error_handler_init(&s_dht22_error_handler, dht22_tag,
-                    dht22_max_retries, dht22_initial_retry_interval,
-                    dht22_max_backoff_interval, priv_dht22_reset);
+  /* TODO: Initialize error handler */
 
-  dht22_data->humidity      = -1.0f;
-  dht22_data->temperature_f = -1.0f;
-  dht22_data->temperature_c = -1.0f;
-  dht22_data->state        = k_dht22_uninitialized;
+  dht22_data->humidity           = -1.0;
+  dht22_data->temperature_f      = -1.0;
+  dht22_data->temperature_c      = -1.0;
+  dht22_data->state              = k_dht22_uninitialized; /* Start uninitialized */
+  dht22_data->retry_count        = 0;
+  dht22_data->retry_interval     = dht22_initial_retry_interval;
+  dht22_data->last_attempt_ticks = 0;
+  dht22_data->fail_count         = 0;
 
   esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
     ESP_LOGE(dht22_tag, "Failed to configure GPIO: %s", esp_err_to_name(ret));
-    dht22_data->state = k_dht22_init_error;
     return ret;
   }
 
   gpio_set_level(dht22_data_io, 1);
   dht22_data->state = k_dht22_ready;
-  ESP_LOGI(dht22_tag, "DHT22 Configuration Complete");
+  ESP_LOGI(dht22_tag, "Sensor Configuration Complete");
   return ESP_OK;
 }
 
@@ -351,7 +330,8 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
 
   ret = priv_dht22_wait_for_response();
   if (ret != ESP_OK) {
-    sensor_data->state = k_dht22_timeout_error;
+    sensor_data->fail_count++;
+    sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Failed to receive response from DHT22");
     return ESP_FAIL;
   }
@@ -359,7 +339,8 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   /* Read data bits */
   ret = priv_dht22_read_data_bits(data_buffer);
   if (ret != ESP_OK) {
-    sensor_data->state = k_dht22_read_error;
+    sensor_data->fail_count++;
+    sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Failed to read data bits from DHT22");
     return ESP_FAIL;
   }
@@ -367,15 +348,18 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
   /* Verify checksum */
   ret = priv_dht22_verify_checksum(data_buffer);
   if (ret != ESP_OK) {
-    sensor_data->state = k_dht22_checksum_error;
+    sensor_data->fail_count++;
+    sensor_data->state = k_dht22_error;
     ESP_LOGE(dht22_tag, "Checksum verification failed");
     return ESP_FAIL;
   }
 
+  sensor_data->fail_count = 0; /* Reset count on successful read */
+
   /* Convert raw data to meaningful values */
   sensor_data->humidity      = ((data_buffer[0] << 8) + data_buffer[1]) * 0.1f;
   sensor_data->temperature_c = (((data_buffer[2] & 0x7F) << 8) + data_buffer[3]) * 0.1f;
-  sensor_data->temperature_f = sensor_data->temperature_c * 9.0f / 5.0f + 32.0f;
+  sensor_data->temperature_f = sensor_data->temperature_c * 9.0 / 5.0 + 32; /* Convert Celsius to Fahrenheit */
 
   /* Handle negative temperatures */
   if (data_buffer[2] & 0x80) {
@@ -395,8 +379,8 @@ esp_err_t dht22_read(dht22_data_t *sensor_data)
 
 void dht22_reset_on_error(dht22_data_t *sensor_data)
 {
-  if (sensor_data->state & k_dht22_error) {
-    error_handler_reset(&s_dht22_error_handler);
+  if (sensor_data->fail_count >= dht22_allowed_fail_attempts) {
+    /* TODO: Reset error handler */
   }
 }
 
@@ -415,4 +399,3 @@ void dht22_tasks(void *sensor_data)
     vTaskDelay(dht22_polling_rate_ticks);
   }
 }
-

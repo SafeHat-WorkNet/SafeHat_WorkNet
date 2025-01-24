@@ -74,12 +74,6 @@ esp_err_t system_tasks_init(void)
     ret = ESP_FAIL;
   }
 
-  /* Initialize gait array (Must be done after initializing motor controllers */
-  if (gait_init(g_pwm_controller) != ESP_OK) {
-    ESP_LOGE(system_tag, "Gait static array initialization failed.");
-    ret = ESP_FAIL;
-  }
-
   /* Initialize WiFi */
   if (wifi_init_sta() != ESP_OK) {
     ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
