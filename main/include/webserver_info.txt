@@ -1,0 +1,19 @@
+/* main/include/webserver_info.h */
+
+/* NOTE: This file will not be pushed to git, but a templated .txt version will */
+
+#ifndef MESHNET_PRIV_WEBSERVER_INFO_H
+#define MESHNET_PRIV_WEBSERVER_INFO_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define webserver_url ("") /**< URL of the web server used for communication. */
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* MESHNET_PRIV_WEBSERVER_INFO_H */
+
