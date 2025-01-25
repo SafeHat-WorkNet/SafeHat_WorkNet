@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "file_write_manager.h"
-#include "webserver_tasks.h"
 #include "cJSON.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -390,7 +389,7 @@ void dht22_tasks(void *sensor_data)
   while (1) {
     if (dht22_read(dht22_data) == ESP_OK) {
       char *json = dht22_data_to_json(dht22_data);
-      send_sensor_data_to_webserver(json);
+      // send_sensor_data_to_webserver(json);
       file_write_enqueue("dht22.txt", json);
       free(json);
     } else {

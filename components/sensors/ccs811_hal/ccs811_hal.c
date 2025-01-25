@@ -2,7 +2,6 @@
 
 #include "ccs811_hal.h"
 #include "file_write_manager.h"
-#include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
@@ -149,7 +148,7 @@ void ccs811_tasks(void *sensor_data)
   while (1) {
     if (ccs811_read(ccs811_data) == ESP_OK) {
       char *json = ccs811_data_to_json(ccs811_data);
-      send_sensor_data_to_webserver(json);
+      // send_sensor_data_to_webserver(json);
       file_write_enqueue("ccs811.txt", json);
       free(json);
     } else {

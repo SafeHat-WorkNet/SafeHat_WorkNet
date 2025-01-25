@@ -3,7 +3,6 @@
 #include "time_manager.h"
 #include <time.h>
 #include <sys/time.h>
-#include "wifi_tasks.h"
 #include "esp_sntp.h"
 #include "esp_log.h"
 
@@ -78,11 +77,11 @@ static void priv_set_default_time(void)
 esp_err_t time_manager_init(void)
 {
   /* First, check the Wi-Fi connection. If it's unavailable, fallback to default time. */
-  if (wifi_check_connection() != ESP_OK) {
-    ESP_LOGE(time_manager_tag, "Network not available. Using default time.");
-    priv_set_default_time();
-    return ESP_FAIL; 
-  }
+  // if (wifi_check_connection() != ESP_OK) {
+  //   ESP_LOGE(time_manager_tag, "Network not available. Using default time.");
+  //   priv_set_default_time();
+  //   return ESP_FAIL; 
+  // }
 
   /* If we have Wi-Fi, proceed with SNTP initialization. */
   priv_initialize_sntp();

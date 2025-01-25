@@ -4,7 +4,6 @@
 
 #include "mpu6050_hal.h"
 #include "file_write_manager.h"
-#include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
@@ -403,7 +402,7 @@ void mpu6050_tasks(void *sensor_data)
     if (xSemaphoreTake(mpu6050_data->data_ready_sem, portMAX_DELAY) == pdTRUE) {
       if (mpu6050_read(mpu6050_data) == ESP_OK) {
         char *json = mpu6050_data_to_json(mpu6050_data);
-        send_sensor_data_to_webserver(json);
+        // send_sensor_data_to_webserver(json);
         file_write_enqueue("mpu6050.txt", json);
         free(json);
       } else {

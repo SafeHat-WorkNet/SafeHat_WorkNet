@@ -2,7 +2,6 @@
 
 #include "bh1750_hal.h"
 #include "file_write_manager.h"
-#include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/i2c.h"
 #include "esp_log.h"
@@ -143,7 +142,8 @@ void bh1750_tasks(void *sensor_data)
   while (1) {
     if (bh1750_read(bh1750_data) == ESP_OK) {
       char *json = bh1750_data_to_json(bh1750_data);
-      send_sensor_data_to_webserver(json);
+      // Placeholder for sending data to web server
+      // send_sensor_data_to_webserver(json);
       file_write_enqueue("bh1750.txt", json);
       free(json);
       bh1750_data->error_handler.fail_count = 0; // Reset fail count on success

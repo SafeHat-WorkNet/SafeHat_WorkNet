@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include "esp_err.h"
 #include "file_write_manager.h"
-#include "webserver_tasks.h"
 #include "cJSON.h"
 #include "common/uart.h"
 #include "driver/gpio.h"
@@ -459,7 +458,8 @@ void gy_neo6mv2_tasks(void *sensor_data)
   while (1) {
     if (gy_neo6mv2_read(gy_neo6mv2_data) == ESP_OK) {
       char *json = gy_neo6mv2_data_to_json(gy_neo6mv2_data);
-      send_sensor_data_to_webserver(json);
+      // Placeholder
+      //send_sensor_data_to_webserver(json);
       file_write_enqueue("gy_neo6mv2.txt", json);
       free(json);
     } else {

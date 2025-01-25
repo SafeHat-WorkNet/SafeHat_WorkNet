@@ -67,12 +67,6 @@ esp_err_t system_tasks_init(void)
     ret = ESP_FAIL;
   }
   
-  /* Initialize WiFi */
-  if (wifi_init_sta() != ESP_OK) {
-    ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
-    ret = ESP_FAIL;
-  }
-  
   /* Initialize time (SNTP) */
   if (time_manager_init() != ESP_OK) {
 		ESP_LOGE(system_tag ,"Time initialization failed.");

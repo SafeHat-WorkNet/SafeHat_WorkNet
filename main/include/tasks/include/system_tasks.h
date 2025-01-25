@@ -9,7 +9,6 @@ extern "C" {
 
 #include "esp_err.h"
 #include "sensor_tasks.h"
-#include "wifi_tasks.h"
 #include "ov7670_hal.h"
 
 /* Constants ******************************************************************/
