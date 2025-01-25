@@ -1,7 +1,7 @@
 /* main/include/managers/include/time_manager.h */
 
-#ifndef MESHNET_TIME_MANAGER_H
-#define MESHNET_TIME_MANAGER_H
+#ifndef SAFEHAT_WORKNET_TIME_MANAGER_H
+#define SAFEHAT_WORKNET_TIME_MANAGER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,5 +40,5 @@ esp_err_t time_manager_init(void);
 }
 #endif
 
-#endif /* MESHNET_TIME_MANAGER_H */
+#endif /* SAFEHAT_WORKNET_TIME_MANAGER_H */
 

@@ -1,7 +1,6 @@
 idf_component_register(
   SRCS
     "main.c"
-    "include/tasks/motor_tasks.c"
     "include/tasks/wifi_tasks.c"
     "include/tasks/webserver_tasks.c"
     "include/tasks/sensor_tasks.c"

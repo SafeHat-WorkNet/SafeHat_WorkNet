@@ -1,101 +1,86 @@
-# MeshNet: A Smart Security System with Self-Healing Mesh Network and Local AI/ML Capabilities
+# SafeHat WorkNet: A Connected Safety Solution with Mesh Networking and Real-Time Monitoring
 
-![IoT](https://img.shields.io/badge/IoT-Security%20System-blue)  
-![ESP32](https://img.shields.io/badge/ESP32-CAM-orange)  
-![AI/ML](https://img.shields.io/badge/AI%2FML-Edge%20Computing-green)  
-![Mesh Network](https://img.shields.io/badge/Network-Self%20Healing-red)
+![IoT](https://img.shields.io/badge/IoT-Safety%20Helmet-blue)  
+![ESP32](https://img.shields.io/badge/ESP32-Mesh%20Network-orange)  
+![Sensors](https://img.shields.io/badge/Sensors-Multifunctional-green)  
+![Safety](https://img.shields.io/badge/Alerts-Real%20Time-red)
 
-MeshNet is a smart security system designed for the **TAMUhack 2025 Hardware IoT Track**. It leverages multiple ESP32 devices with cameras to create a self-healing mesh network with local AI/ML capabilities for real-time analysis. This project showcases the potential of combining IoT, AI, and distributed systems to build a cost-effective, scalable, and resilient security system.
+SafeHat WorkNet is a smart safety system designed to revolutionize workplace safety. This project integrates advanced sensors, a self-healing mesh network, and real-time alert mechanisms into a hard hat, providing comprehensive monitoring and protection for industrial and construction workers.
 
 ---
 
 ## Features
 
-### 1. **ESP32 Devices with Cameras**
-- Each ESP32 is equipped with a camera module (e.g., ESP32-CAM) to capture video or images.
-- Camera data is processed locally or streamed to other nodes or a central system.
-- Devices are strategically placed for full coverage of the monitored area.
+### 1. **Advanced Environmental and Positional Sensing**
+- **Temperature and Humidity Sensors**: Monitor worksite conditions to prevent heat stress and maintain comfort.
+- **Gas Sensor**: Detect hazardous gas levels and provide immediate warnings.
+- **Light Sensor**: Adjust for ambient light conditions to optimize visibility.
+- **GPS Module**: Track worker location for safety and coordination.
+- **Accelerometer and Gyroscope**: Detect falls, impacts, or irregular movements.
 
 ### 2. **Self-Healing Mesh Network**
-- Multiple ESP32 devices form a mesh network for communication without relying on a central router.
-- If one device fails or goes offline, the network automatically reroutes data through alternate paths, ensuring uninterrupted operation.
-- The mesh network distributes workload and enhances fault tolerance.
+- Employs **ESP32 microcontrollers** to create a robust and fault-tolerant network.
+- Enables seamless communication between workers’ helmets, ensuring consistent data flow.
+- Automatically reroutes data in case of device failure, maintaining network integrity.
 
-### 3. **Local AI/ML Model**
-- AI/ML models are deployed locally on each ESP32 (or groups of ESP32s) to perform real-time tasks like:
-  - Object detection (e.g., recognizing intruders, distinguishing between humans and animals).
-  - Facial recognition for access control.
-  - Anomaly detection to identify unusual activities.
-- The ML model is optimized for lightweight, edge-based computing to fit within the resource constraints of ESP32s.
+### 3. **Onboard Display**
+- Displays critical real-time metrics, including environmental readings, location, and alerts, directly on the helmet.
 
-### 4. **Parallel Computing for the ML Model**
-- The project leverages parallel computing by distributing model inference tasks across multiple ESP32 devices.
-- For computationally intensive operations, tasks are divided, processed by different devices, and results are aggregated.
-- This approach maximizes processing power while maintaining energy efficiency.
+### 4. **Camera with Event Buffer**
+- Integrated camera records the **previous 20 seconds** of footage upon detecting impacts or falls.
+- **MicroSD card support** for secure, local storage of video data.
 
-### 5. **Security System Capabilities**
-- Event-based alerts: ESP32 devices trigger alerts (e.g., send notifications or alarms) based on detected events like movement or specific objects.
-- Local data processing: Reduces the need for cloud dependency, improving privacy and response time.
-- Low latency: Critical for real-time analysis and decision-making.
-- Energy efficiency: Essential for long-term operation, especially in battery-powered setups.
+### 5. **Real-Time Alerts**
+- **Piezo buzzer** provides immediate alerts for hazardous gas levels or other critical events.
 
-### 6. **Expandable and Scalable Design**
-- The system is designed to easily add new ESP32 nodes to the network for extended coverage.
-- Supports modular updates to AI/ML models for improving detection accuracy or adding new features.
-
-### 7. **Self-Healing Mechanism**
-- Mesh nodes automatically detect and compensate for network failures by redistributing tasks.
-- Ensures continuous coverage and robust performance even during partial system outages.
+### 6. **Battery Health Monitoring**
+- Continuously tracks battery status to ensure uninterrupted operation and alerts workers to low battery levels.
 
 ---
 
 ## Applications
 
-- **Home Security**: Detects and alerts for unauthorized access or unusual activities.
-- **Industrial Monitoring**: Monitors equipment or restricted areas in factories or warehouses.
-- **Agricultural Surveillance**: Tracks movement in fields and detects potential threats to crops or livestock.
-- **Disaster Recovery**: Rapidly deployable surveillance system in disaster zones where infrastructure is damaged.
+- **Industrial and Construction Worksites**: Enhances worker safety and environmental monitoring.
+- **Hazardous Environments**: Provides real-time alerts and monitoring in mines, chemical plants, and similar high-risk areas.
+- **Incident Analysis**: Post-incident video and data review for improved safety protocols.
+- **Remote Monitoring**: Facilitates centralized oversight of multiple workers through mesh networking.
 
 ---
 
-## Challenges and Considerations
+## Challenges and Solutions
 
-- **Computational Load**: AI/ML models need to be highly optimized for ESP32's limited resources.
-- **Power Management**: Efficient power consumption is crucial for long-term deployment.
-- **Mesh Network Optimization**: Ensuring reliable data transmission and low latency across the network.
-- **Security**: Implementing encryption and secure communication protocols to protect sensitive data.
-- **Integration**: Balancing local processing with potential cloud integration for heavy computations or storage.
+- **Sensor Integration**: Ensuring compatibility and seamless communication among diverse sensors.
+- **Power Management**: Optimized for low power consumption to maximize operational time.
+- **Mesh Network Stability**: Designed to handle dynamic environments with minimal latency and reliable rerouting.
+- **Scalability**: Easily add nodes to the network without compromising performance.
 
 ---
 
 ## Parts List
 
-For a detailed list of components used in this project, check out our **[Parts List](https://docs.google.com/spreadsheets/d/1McdBwdMqhl6GKV4Jj4hYkLqE92k9_GQFfjGTEWFoEXA/edit?gid=0#gid=0)**.
+For a detailed list of components used in this project, refer to our **[Parts List](https://docs.google.com/spreadsheets/d/example-link/edit#gid=0)**.
 
 ---
 
 ## Getting Started
 
-To set up MeshNet on your own, follow these steps:
+To build and deploy your own **SafeHat WorkNet**, follow these steps:
 
-1. **Hardware Setup**: Assemble the ESP32-CAM modules and connect them to power sources.
-2. **Mesh Network Configuration**: Use the provided firmware to establish a self-healing mesh network.
-3. **AI/ML Model Deployment**: Load the optimized AI/ML models onto the ESP32 devices.
-4. **Testing and Calibration**: Test the system in your desired environment and calibrate the cameras and sensors for optimal performance.
-5. **Expand and Scale**: Add more ESP32 nodes to the network as needed.
+1. **Hardware Assembly**: Install sensors, camera, and ESP32 modules on the helmet. Connect to a secure power source.
+2. **Firmware Installation**: Use the provided firmware to initialize sensors and establish the mesh network.
+3. **Calibration and Testing**: Calibrate sensors for accuracy and test the network in your worksite environment.
+4. **Deploy and Expand**: Deploy helmets to workers and expand the network by adding more nodes as needed.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
 ---
 
 ## Acknowledgments
 
-- **TAMUhack 2025** for providing the platform to showcase this project.
-- **ESP32 Community** for their extensive documentation and support.
-- **OpenCV** and **TensorFlow Lite** for enabling lightweight AI/ML on edge devices.
-
----
+- **ESP32 Community** for providing the foundation for mesh networking.
+- **Open-Source Sensor Libraries** for enabling easy integration of diverse sensors.
+- The dedicated team behind SafeHat WorkNet for their vision and innovation.

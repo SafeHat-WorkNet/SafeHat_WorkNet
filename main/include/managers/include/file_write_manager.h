@@ -1,7 +1,7 @@
 /* main/include/managers/include/file_write_manager.h */
 
-#ifndef MESHNET_FILE_WRITE_MANAGER_H
-#define MESHNET_FILE_WRITE_MANAGER_H
+#ifndef SAFEHAT_WORKNET_FILE_WRITE_MANAGER_H
+#define SAFEHAT_WORKNET_FILE_WRITE_MANAGER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,5 +88,5 @@ esp_err_t file_write_enqueue(const char *file_path, const char *data);
 }
 #endif
 
-#endif /* MESHNET_FILE_WRITE_MANAGER_H */
+#endif /* SAFEHAT_WORKNET_FILE_WRITE_MANAGER_H */
 

@@ -12,12 +12,11 @@
 
 /* Constants ******************************************************************/
 
-const char *system_tag = "Meshnet";
+const char *system_tag = "SafeHatWorkNet";
 
 /* Globals ********************************************************************/
 
 sensor_data_t    g_sensor_data    = {};
-pca9685_board_t *g_pwm_controller = {};
 ov7670_data_t    g_camera_data    = {};
 
 /* Private (Static) Functions *************************************************/
@@ -68,12 +67,6 @@ esp_err_t system_tasks_init(void)
     ret = ESP_FAIL;
   }
   
-  /* Initialize motor controllers */
-  if (motors_init(&g_pwm_controller) != ESP_OK) {
-    ESP_LOGE(system_tag, "Motor controller initialization failed.");
-    ret = ESP_FAIL;
-  }
-
   /* Initialize WiFi */
   if (wifi_init_sta() != ESP_OK) {
     ESP_LOGE(system_tag, "Wifi failed to connect / initialize.");
@@ -101,15 +94,10 @@ esp_err_t system_tasks_init(void)
 esp_err_t system_tasks_start(void)
 {
   esp_err_t ret = ESP_OK;
+
   /* Start sensor tasks */
   if (sensor_tasks(&g_sensor_data) != ESP_OK) {
     ESP_LOGE(system_tag, "Sensor tasks start failed.");
-    ret = ESP_FAIL;
-  }
-
-  /* Start motor control tasks */
-  if (motor_tasks_start(g_pwm_controller) != ESP_OK) {
-    ESP_LOGE(system_tag, "Motor tasks start failed.");
     ret = ESP_FAIL;
   }
 

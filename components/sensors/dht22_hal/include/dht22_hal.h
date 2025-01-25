@@ -1,7 +1,7 @@
 /* components/sensors/dht22_hal/include/dht22_hal.h */
 
-#ifndef MESHNET_DHT22_HAL_H
-#define MESHNET_DHT22_HAL_H
+#ifndef SAFEHAT_WORKNET_DHT22_HAL_H
+#define SAFEHAT_WORKNET_DHT22_HAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -152,4 +152,4 @@ void dht22_tasks(void *sensor_data);
 }
 #endif
 
-#endif /* MESHNET_DHT22_HAL_H */
+#endif /* SAFEHAT_WORKNET_DHT22_HAL_H */

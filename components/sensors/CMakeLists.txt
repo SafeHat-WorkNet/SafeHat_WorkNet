@@ -3,11 +3,17 @@ idf_component_register(
     "dht22_hal/dht22_hal.c"
     "ccs811_hal/ccs811_hal.c"
     "mq135_hal/mq135_hal.c"
+    "gy_neo6mv2_hal/gy_neo6mv2_hal.c"
+    "bh1750_hal/bh1750_hal.c"
+    "mpu6050_hal/mpu6050_hal.c"
   INCLUDE_DIRS
     "include"
     "dht22_hal/include"
     "ccs811_hal/include"
     "mq135_hal/include"
+    "gy_neo6mv2_hal/include"
+    "bh1750_hal/include"
+    "mpu6050_hal/include"
   PRIV_REQUIRES
     driver
     common

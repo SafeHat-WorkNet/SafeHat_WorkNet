@@ -1,7 +1,7 @@
 /* components/camera/ov7670_hal/include/ov7670_hal.h */
 
-#ifndef MESHNET_OV7670_HAL_H
-#define MESHNET_OV7670_HAL_H
+#ifndef SAFEHAT_WORKNET_OV7670_HAL_H
+#define SAFEHAT_WORKNET_OV7670_HAL_H
 
 #include <stdint.h>
 #include "esp_err.h"
@@ -176,4 +176,4 @@ void ov7670_tasks(void *sensor_data);
 }
 #endif
 
-#endif /* MESHNET_OV7670_HAL_H */
+#endif /* SAFEHAT_WORKNET_OV7670_HAL_H */

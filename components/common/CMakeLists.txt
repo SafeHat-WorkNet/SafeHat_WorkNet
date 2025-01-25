@@ -1,6 +1,7 @@
 idf_component_register(
   SRCS
     "i2c.c"
+    "uart.c"
     "error_handler.c"
   INCLUDE_DIRS
     "include"

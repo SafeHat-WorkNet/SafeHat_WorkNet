@@ -7,9 +7,12 @@
 /* Globals (Static) ***********************************************************/
 
 static sensor_config_t s_sensors[] = {
-  { "DHT22",  dht22_init,  dht22_tasks,  &(g_sensor_data.dht22_data),  5, 4096, false }, /* works dht22 */
-  { "CCS811", ccs811_init, ccs811_tasks, &(g_sensor_data.ccs811_data), 5, 4096, false }, /* doesn't work ccs811 */
-  { "MQ135",  mq135_init,  mq135_tasks,  &(g_sensor_data.mq135_data),  5, 4096, false }, /* works mq135 */
+  { "BH1750",     bh1750_init,     bh1750_tasks,     &(g_sensor_data.bh1750_data),     5, 4096, false }, /* works bh1750 */
+  { "MPU6050",    mpu6050_init,    mpu6050_tasks,    &(g_sensor_data.mpu6050_data),    5, 4096, false }, /* works mpu6050, but needs to be configured */
+  { "DHT22",      dht22_init,      dht22_tasks,      &(g_sensor_data.dht22_data),      5, 4096, false }, /* works dht22 */
+  { "GY-NEO6MV2", gy_neo6mv2_init, gy_neo6mv2_tasks, &(g_sensor_data.gy_neo6mv2_data), 5, 4096, false }, /* doesn't work gy-neo6mv2 */
+  { "CCS811",     ccs811_init,     ccs811_tasks,     &(g_sensor_data.ccs811_data),     5, 4096, false }, /* doesn't work ccs811 */
+  { "MQ135",      mq135_init,      mq135_tasks,      &(g_sensor_data.mq135_data),      5, 4096, false }, /* works mq135 */
 };
 
 /* Public Functions ***********************************************************/

@@ -1,7 +1,7 @@
 /* components/sensors/ccs811_hal/include/ccs811_hal.h */
 
-#ifndef MESHNET_CCS811_HAL_H
-#define MESHNET_CCS811_HAL_H
+#ifndef SAFEHAT_WORKNET_CCS811_HAL_H
+#define SAFEHAT_WORKNET_CCS811_HAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -156,5 +156,5 @@ void ccs811_tasks(void *sensor_data);
 }
 #endif
 
-#endif /* MESHNET_CCS811_HAL_H */
+#endif /* SAFEHAT_WORKNET_CCS811_HAL_H */
 

@@ -1,7 +1,7 @@
 /* components/common/include/common/uart.h */
 
-#ifndef MESHNET_UART_H
-#define MESHNET_UART_H
+#ifndef SAFEHAT_WORKNET_UART_H
+#define SAFEHAT_WORKNET_UART_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,5 +71,5 @@ esp_err_t priv_uart_read(uint8_t *data, size_t len, int32_t *out_length,
 }
 #endif
 
-#endif /* MESHNET_UART_H */
+#endif /* SAFEHAT_WORKNET_UART_H */
 

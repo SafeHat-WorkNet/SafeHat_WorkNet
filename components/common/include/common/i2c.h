@@ -1,7 +1,7 @@
 /* components/common/include/common/i2c.h */
 
-#ifndef MESHNET_I2C_H
-#define MESHNET_I2C_H
+#ifndef SAFEHAT_WORKNET_I2C_H
+#define SAFEHAT_WORKNET_I2C_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -129,5 +129,5 @@ esp_err_t priv_i2c_read_reg_bytes(uint8_t reg_addr, uint8_t *data, size_t len,
 }
 #endif
 
-#endif /* MESHNET_I2C_H */
+#endif /* SAFEHAT_WORKNET_I2C_H */
 

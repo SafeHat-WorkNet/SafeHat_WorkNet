@@ -2,8 +2,8 @@
 
 /* NOTE: This file will not be pushed to git, but a templated .txt version will */
 
-#ifndef MESHNET_PRIV_WEBSERVER_INFO_H
-#define MESHNET_PRIV_WEBSERVER_INFO_H
+#ifndef SAFEHAT_WORKNET_PRIV_WEBSERVER_INFO_H
+#define SAFEHAT_WORKNET_PRIV_WEBSERVER_INFO_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,5 +15,5 @@ extern "C" {
 }
 #endif
 
-#endif /* MESHNET_PRIV_WEBSERVER_INFO_H */
+#endif /* SAFEHAT_WORKNET_PRIV_WEBSERVER_INFO_H */
 

@@ -1,7 +1,7 @@
 /* components/common/include/error_handler.h */
 
-#ifndef MESHNET_ERROR_HANDLER_H
-#define MESHNET_ERROR_HANDLER_H
+#ifndef SAFEHAT_WORKNET_ERROR_HANDLER_H
+#define SAFEHAT_WORKNET_ERROR_HANDLER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,4 +72,4 @@ esp_err_t error_handler_reset(error_handler_t *handler,
 }
 #endif
 
-#endif /* MESHNET_ERROR_HANDLER_H */
+#endif /* SAFEHAT_WORKNET_ERROR_HANDLER_H */

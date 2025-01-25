@@ -1,7 +1,7 @@
 /* components/storage/sd_card_hal/include/sd_card_hal.h */
 
-#ifndef MESHNET_SD_CARD_HAL_H
-#define MESHNET_SD_CARD_HAL_H
+#ifndef SAFEHAT_WORKNET_SD_CARD_HAL_H
+#define SAFEHAT_WORKNET_SD_CARD_HAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,5 +51,5 @@ esp_err_t sd_card_init(void);
 }
 #endif
 
-#endif /* MESHNET_SD_CARD_HAL_H */
+#endif /* SAFEHAT_WORKNET_SD_CARD_HAL_H */
 

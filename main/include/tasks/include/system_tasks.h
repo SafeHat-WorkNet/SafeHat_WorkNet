@@ -10,8 +10,6 @@ extern "C" {
 #include "esp_err.h"
 #include "sensor_tasks.h"
 #include "wifi_tasks.h"
-#include "motor_tasks.h"
-#include "pca9685_hal.h"
 #include "ov7670_hal.h"
 
 /* Constants ******************************************************************/
@@ -21,7 +19,6 @@ extern const char *system_tag; /**< Logging tag */
 /* Globals ********************************************************************/
 
 extern sensor_data_t    g_sensor_data;    /**< Global variable that holds the sensor data */
-extern pca9685_board_t *g_pwm_controller; /**< Global variable that holds the PWM controller linked list */
 extern ov7670_data_t    g_camera_data;    /**< Global variable that holds the camera data */
 
 /* Public Functions ***********************************************************/
@@ -30,9 +27,9 @@ extern ov7670_data_t    g_camera_data;    /**< Global variable that holds the ca
  * @brief Initializes system-level tasks for handling devices and communication.
  *
  * Prepares system tasks required for managing hardware devices and communication 
- * subsystems. This includes setting up resources for motor monitoring, sensor 
- * data collection, video streaming to the web server, and Wi-Fi operations. 
- * Initialization ensures that each task has the necessary prerequisites to start.
+ * subsystems. This includes setting up resources for sensor data collection, 
+ * video streaming to the web server, and Wi-Fi operations. Initialization ensures 
+ * that each task has the necessary prerequisites to start.
  *
  * @return 
  * - ESP_OK   if all system-level tasks are initialized successfully.
@@ -47,7 +44,6 @@ esp_err_t system_tasks_init(void);
  * @brief Starts system-level tasks for handling devices and communication.
  *
  * Creates and starts tasks responsible for the following functions:
- * - Monitoring and controlling motors.
  * - Collecting and processing sensor data.
  * - Relaying video streams to the web server.
  * - Managing Wi-Fi connectivity and related operations.
@@ -55,7 +51,7 @@ esp_err_t system_tasks_init(void);
  * Tasks are pinned to the appropriate ESP32 cores to optimize performance and 
  * ensure efficient resource utilization:
  * - Core 0: Wi-Fi handling.
- * - Core 1: Motor monitoring, sensor data collection, and webserver video relay.
+ * - Core 1: Sensor data collection, and webserver video relay.
  *
  * @return 
  * - ESP_OK   if all tasks start successfully.
