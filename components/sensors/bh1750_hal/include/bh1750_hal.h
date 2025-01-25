@@ -12,6 +12,7 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -22,6 +23,7 @@ extern const uint8_t    bh1750_scl_io;                 /**< GPIO pin for the I2C
 extern const uint8_t    bh1750_sda_io;                 /**< GPIO pin for the I2C Serial Data Line (SDA). */
 extern const uint32_t   bh1750_i2c_freq_hz;            /**< I2C bus frequency in Hz for BH1750 communication (default 100 kHz). */
 extern const uint32_t   bh1750_polling_rate_ticks;     /**< Polling rate for the BH1750 sensor in system ticks. */
+extern const uint8_t    bh1750_allowed_fail_attempts;  /**< Maximum number of failures allowed before reset. */
 extern const uint8_t    bh1750_max_retries;            /**< Maximum retry attempts for BH1750 sensor reinitialization. */
 extern const uint32_t   bh1750_initial_retry_interval; /**< Initial retry interval in ticks for BH1750 reinitialization. */
 extern const uint32_t   bh1750_max_backoff_interval;   /**< Maximum backoff interval in ticks for BH1750 reinitialization retries. */
@@ -72,17 +74,15 @@ typedef enum : uint8_t {
  * @brief Data structure for managing BH1750 sensor information.
  *
  * Contains essential data for interfacing with the BH1750 sensor, including I2C
- * communication details, light intensity readings, and retry management for
- * error handling and reinitialization.
+ * communication details, light intensity readings, and error handling through
+ * the error_handler_t structure.
  */
 typedef struct {
-  uint8_t    i2c_address;        /**< I2C address for communication with the sensor. */
-  uint8_t    i2c_bus;            /**< I2C bus number the sensor is connected to. */
-  float      lux;                /**< Latest light intensity reading from the sensor, in lux. */
-  uint8_t    state;              /**< Current state of the sensor (see bh1750_states_t). */
-  uint8_t    retry_count;        /**< Counter for consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between retry attempts, increases exponentially. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  uint8_t         i2c_address;    /**< I2C address for communication with the sensor. */
+  uint8_t         i2c_bus;        /**< I2C bus number the sensor is connected to. */
+  float           lux;            /**< Latest light intensity reading from the sensor, in lux. */
+  uint8_t         state;          /**< Current state of the sensor (see bh1750_states_t). */
+  error_handler_t error_handler;  /**< Error handler for managing sensor errors and recovery. */
 } bh1750_data_t;
 
 /* Public Functions ***********************************************************/
@@ -138,32 +138,17 @@ esp_err_t bh1750_init(void *sensor_data);
 esp_err_t bh1750_read(bh1750_data_t *sensor_data);
 
 /**
- * @brief Handles reinitialization and recovery for the BH1750 sensor.
- *
- * Implements exponential backoff for reinitialization attempts when errors are
- * detected. Resets retry counters on successful recovery.
- *
- * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure managing
- *                            the sensor state and retry information.
- *
- * @note 
- * - Call this function periodically within `bh1750_tasks`.
- * - Limits retries based on `bh1750_max_backoff_interval`.
- */
-void bh1750_reset_on_error(bh1750_data_t *sensor_data);
-
-/**
  * @brief Executes periodic tasks for the BH1750 sensor.
  *
- * Periodically reads data and handles errors for the BH1750 sensor. Uses
- * `bh1750_reset_on_error` for recovery. Intended to run in a FreeRTOS task.
+ * Periodically reads data and handles errors for the BH1750 sensor using
+ * the error handler for recovery. Intended to run in a FreeRTOS task.
  *
  * @param[in,out] sensor_data Pointer to the `bh1750_data_t` structure for managing
  *                            sensor data and error recovery.
  *
  * @note 
  * - Should run at intervals defined by `bh1750_polling_rate_ticks`.
- * - Handles error recovery internally to maintain stable operation.
+ * - Uses error_handler_t for error recovery to maintain stable operation.
  */
 void bh1750_tasks(void *sensor_data);
 

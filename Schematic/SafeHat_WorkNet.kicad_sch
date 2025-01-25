@@ -1,0 +1,55 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "67e33313-0ce8-4ff5-8d50-46dc6ab8d472")
+	(paper "A4")
+	(title_block
+		(title "Root")
+		(company "SafeHat-WorkNet")
+	)
+	(lib_symbols)
+	(sheet
+		(at 17.78 17.78)
+		(size 19.05 8.89)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "b10fdbae-69f4-4df8-8c58-54772b8ff5c0")
+		(property "Sheetname" "ESP32-WROOM-32"
+			(at 17.78 17.0684 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "ESP32-WROOM-32.kicad_sch"
+			(at 17.78 27.2546 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "SafeHat_WorkNet"
+				(path "/67e33313-0ce8-4ff5-8d50-46dc6ab8d472"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+)
