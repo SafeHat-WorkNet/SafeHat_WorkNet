@@ -20,11 +20,11 @@ const uint32_t mq135_warmup_time_ms         = 180000; /**< 3-minute warm-up time
 const uint8_t  mq135_max_retries            = 4;
 const uint32_t mq135_initial_retry_interval = pdMS_TO_TICKS(15000);
 const uint32_t mq135_max_backoff_interval   = pdMS_TO_TICKS(480000);
+const uint8_t  mq135_allowed_fail_attempts  = 3;
 
 /* Globals (Static) ***********************************************************/
 
-static adc_oneshot_unit_handle_t s_adc1_handle         = { 0 }; /**< ADC handle for the MQ135 sensor. */
-static error_handler_t           s_mq135_error_handler = { 0 };
+static adc_oneshot_unit_handle_t s_adc1_handle = { 0 }; /**< ADC handle for the MQ135 sensor. */
 
 /* Static (Private) Functions **************************************************/
 
@@ -86,10 +86,19 @@ esp_err_t mq135_init(void *sensor_data)
   mq135_data_t *mq135_data = (mq135_data_t *)sensor_data;
   ESP_LOGI(mq135_tag, "Initializing MQ135 Sensor");
 
+  /* Initialize data structure */
   mq135_data->raw_adc_value      = 0;
   mq135_data->gas_concentration  = 0.0;
   mq135_data->state              = k_mq135_warming_up;
   mq135_data->warmup_start_ticks = xTaskGetTickCount();
+
+  /* Initialize error handler */
+  error_handler_init(&mq135_data->error_handler,
+                    mq135_tag,
+                    mq135_allowed_fail_attempts,
+                    mq135_max_retries,
+                    mq135_initial_retry_interval,
+                    mq135_max_backoff_interval);
 
   adc_oneshot_unit_init_cfg_t adc1_init_cfg = { .unit_id = ADC_UNIT_1 };
   esp_err_t ret = adc_oneshot_new_unit(&adc1_init_cfg, &s_adc1_handle);
@@ -140,33 +149,6 @@ esp_err_t mq135_read(mq135_data_t *sensor_data)
   return ESP_OK;
 }
 
-void mq135_reset_on_error(mq135_data_t *sensor_data)
-{
-  if (sensor_data->state == k_mq135_read_error) {
-    TickType_t current_ticks = xTaskGetTickCount();
-    if ((current_ticks - sensor_data->warmup_start_ticks) > sensor_data->retry_interval) {
-      ESP_LOGI(mq135_tag, "Attempting to reset MQ135 sensor");
-
-      esp_err_t ret = mq135_init(sensor_data);
-      if (ret == ESP_OK) {
-        sensor_data->state          = k_mq135_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = mq135_initial_retry_interval;
-        ESP_LOGI(mq135_tag, "MQ135 sensor reset successfully.");
-      } else {
-        sensor_data->retry_count++;
-        if (sensor_data->retry_count >= mq135_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > mq135_max_backoff_interval) ?
-                                        mq135_max_backoff_interval : sensor_data->retry_interval * 2;
-        }
-      }
-
-      sensor_data->warmup_start_ticks = current_ticks;
-    }
-  }
-}
-
 void mq135_tasks(void *sensor_data)
 {
   mq135_data_t *mq135_data = (mq135_data_t *)sensor_data;
@@ -176,8 +158,13 @@ void mq135_tasks(void *sensor_data)
       send_sensor_data_to_webserver(json);
       file_write_enqueue("mq135.txt", json);
       free(json);
+      mq135_data->error_handler.fail_count = 0; /* Reset fail count on success */
     } else {
-      mq135_reset_on_error(mq135_data);
+      mq135_data->error_handler.fail_count++;
+      error_handler_reset(&mq135_data->error_handler,
+                         mq135_data->error_handler.fail_count,
+                         mq135_init,
+                         mq135_data);
     }
     vTaskDelay(mq135_polling_rate_ticks);
   }

@@ -12,6 +12,7 @@
 #include "common/uart.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "error_handler.h"
 
 /* Constants *******************************************************************/
 
@@ -24,6 +25,7 @@ const uint32_t    gy_neo6mv2_polling_rate_ticks     = pdMS_TO_TICKS(5 * 100);
 const uint8_t     gy_neo6mv2_max_retries            = 4;
 const uint32_t    gy_neo6mv2_initial_retry_interval = pdMS_TO_TICKS(15 * 1000);
 const uint32_t    gy_neo6mv2_max_backoff_interval   = pdMS_TO_TICKS(480 * 1000);
+const uint8_t     gy_neo6mv2_allowed_fail_attempts  = 3;
 
 /* Globals (Static) ***********************************************************/
 
@@ -184,7 +186,7 @@ static uint8_t priv_gy_neo6mv2_get_satellites(satellite_t *satellites, uint8_t m
 
 /* Public Functions ***********************************************************/
 
-char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
+char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *data)
 {
   cJSON *json = cJSON_CreateObject();
   if (!json) {
@@ -198,56 +200,14 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
     return NULL;
   }
 
-  if (!cJSON_AddNumberToObject(json, "latitude", gy_neo6mv2_data->latitude)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add latitude to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "longitude", gy_neo6mv2_data->longitude)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add longitude to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "speed", gy_neo6mv2_data->speed)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add speed to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddStringToObject(json, "time", gy_neo6mv2_data->time)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add time to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "fix_status", gy_neo6mv2_data->fix_status)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add fix_status to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "satellite_count", gy_neo6mv2_data->satellite_count)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add satellite_count to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "hdop", gy_neo6mv2_data->hdop)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add hdop to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "retry_count", gy_neo6mv2_data->retry_count)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add retry_count to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "retry_interval", gy_neo6mv2_data->retry_interval)) {
-    ESP_LOGE(gy_neo6mv2_tag, "Failed to add retry_interval to JSON.");
+  if (!cJSON_AddNumberToObject(json, "latitude", data->latitude) ||
+      !cJSON_AddNumberToObject(json, "longitude", data->longitude) ||
+      !cJSON_AddNumberToObject(json, "speed", data->speed) ||
+      !cJSON_AddStringToObject(json, "time", data->time) ||
+      !cJSON_AddNumberToObject(json, "fix_status", data->fix_status) ||
+      !cJSON_AddNumberToObject(json, "satellite_count", data->satellite_count) ||
+      !cJSON_AddNumberToObject(json, "hdop", data->hdop)) {
+    ESP_LOGE(gy_neo6mv2_tag, "Failed to add GPS data to JSON.");
     cJSON_Delete(json);
     return NULL;
   }
@@ -265,34 +225,45 @@ char *gy_neo6mv2_data_to_json(const gy_neo6mv2_data_t *gy_neo6mv2_data)
 
 esp_err_t gy_neo6mv2_init(void *sensor_data)
 {
-  ESP_LOGI(gy_neo6mv2_tag, "Initializing GPS module");
+  gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
+  ESP_LOGI(gy_neo6mv2_tag, "Starting GY-NEO6MV2 Configuration");
 
-  /* Initialize UART using the common UART function */
-  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io, gy_neo6mv2_rx_io, gy_neo6mv2_uart_baudrate,
-                                 gy_neo6mv2_uart_num, gy_neo6mv2_tag);
+  /* Initialize data structure */
+  gy_neo6mv2_data->latitude        = 0.0;
+  gy_neo6mv2_data->longitude       = 0.0;
+  gy_neo6mv2_data->speed          = 0.0;
+  gy_neo6mv2_data->fix_status     = 0;
+  gy_neo6mv2_data->satellite_count = 0;
+  gy_neo6mv2_data->hdop           = 99.99;
+  gy_neo6mv2_data->state          = k_gy_neo6mv2_uninitialized;
+  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));
+
+  /* Initialize error handler */
+  error_handler_init(&gy_neo6mv2_data->error_handler,
+                    gy_neo6mv2_tag,
+                    gy_neo6mv2_allowed_fail_attempts,
+                    gy_neo6mv2_max_retries,
+                    gy_neo6mv2_initial_retry_interval,
+                    gy_neo6mv2_max_backoff_interval);
+
+  /* Initialize UART */
+  esp_err_t ret = priv_uart_init(gy_neo6mv2_uart_num,
+                                gy_neo6mv2_uart_baudrate,
+                                gy_neo6mv2_tx_io,
+                                gy_neo6mv2_rx_io,
+                                gy_neo6mv2_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(gy_neo6mv2_tag, "UART initialization failed");
     return ret;
   }
 
-  /* Allow time for the GPS module to warm up */
-  vTaskDelay(pdMS_TO_TICKS(5000));
+  /* Clear buffers */
+  s_gy_neo6mv2_sentence_index = 0;
+  memset(s_gy_neo6mv2_sentence_buffer, 0, sizeof(s_gy_neo6mv2_sentence_buffer));
+  priv_gy_neo6mv2_clear_satellites();
 
-  /* Initialize GPS gy_neo6mv2_data fields */
-  gy_neo6mv2_data_t *gy_neo6mv2_data  = (gy_neo6mv2_data_t *)sensor_data;
-  gy_neo6mv2_data->latitude           = 0.0;                               /* Default latitude */
-  gy_neo6mv2_data->longitude          = 0.0;                               /* Default longitude */
-  gy_neo6mv2_data->speed              = 0.0;                               /* Default speed */
-  gy_neo6mv2_data->fix_status         = 0;                                 /* No fix initially */
-  gy_neo6mv2_data->satellite_count    = 0;                                 /* No satellites initially */
-  gy_neo6mv2_data->hdop               = 99.99;                             /* Default HDOP value */
-  gy_neo6mv2_data->state              = k_gy_neo6mv2_uninitialized;        /* Initial state */
-  gy_neo6mv2_data->retry_count        = 0;                                 /* Reset retry count */
-  gy_neo6mv2_data->retry_interval     = gy_neo6mv2_initial_retry_interval; /* Default retry interval */
-  gy_neo6mv2_data->last_attempt_ticks = 0;                                 /* Reset last attempt ticks */
-  memset(gy_neo6mv2_data->time, 0, sizeof(gy_neo6mv2_data->time));         /* Clear time field */
-
-  ESP_LOGI(gy_neo6mv2_tag, "GPS module initialized successfully");
+  gy_neo6mv2_data->state = k_gy_neo6mv2_ready;
+  ESP_LOGI(gy_neo6mv2_tag, "GY-NEO6MV2 Configuration Complete");
   return ESP_OK;
 }
 
@@ -425,34 +396,6 @@ esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data)
   }
 }
 
-void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data)
-{
-  if (sensor_data->state == k_gy_neo6mv2_error) {
-    TickType_t current_ticks = xTaskGetTickCount();
-
-    if ((current_ticks - sensor_data->last_attempt_ticks) > sensor_data->retry_interval) {
-      ESP_LOGI(gy_neo6mv2_tag, "Attempting to reset GY-NEO6MV2 GPS module");
-
-      esp_err_t ret = gy_neo6mv2_init(sensor_data);
-      if (ret == ESP_OK) {
-        sensor_data->state          = k_gy_neo6mv2_ready;
-        sensor_data->retry_count    = 0;
-        sensor_data->retry_interval = gy_neo6mv2_initial_retry_interval;
-        ESP_LOGI(gy_neo6mv2_tag, "GY-NEO6MV2 GPS module reset successfully.");
-      } else {
-        sensor_data->retry_count++;
-        if (sensor_data->retry_count >= gy_neo6mv2_max_retries) {
-          sensor_data->retry_count    = 0;
-          sensor_data->retry_interval = (sensor_data->retry_interval * 2 > gy_neo6mv2_max_backoff_interval) ?
-                                         gy_neo6mv2_max_backoff_interval : sensor_data->retry_interval * 2;
-        }
-      }
-
-      sensor_data->last_attempt_ticks = current_ticks;
-    }
-  }
-}
-
 void gy_neo6mv2_tasks(void *sensor_data)
 {
   gy_neo6mv2_data_t *gy_neo6mv2_data = (gy_neo6mv2_data_t *)sensor_data;
@@ -462,9 +405,13 @@ void gy_neo6mv2_tasks(void *sensor_data)
       send_sensor_data_to_webserver(json);
       file_write_enqueue("gy_neo6mv2.txt", json);
       free(json);
+      gy_neo6mv2_data->error_handler.fail_count = 0; /* Reset fail count on success */
     } else {
-      ESP_LOGW(gy_neo6mv2_tag, "Error reading GPS data, resetting...");
-      gy_neo6mv2_reset_on_error(gy_neo6mv2_data);
+      gy_neo6mv2_data->error_handler.fail_count++;
+      error_handler_reset(&gy_neo6mv2_data->error_handler,
+                         gy_neo6mv2_data->error_handler.fail_count,
+                         gy_neo6mv2_init,
+                         gy_neo6mv2_data);
     }
     vTaskDelay(gy_neo6mv2_polling_rate_ticks);
   }

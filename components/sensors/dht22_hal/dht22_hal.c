@@ -257,20 +257,10 @@ char *dht22_data_to_json(const dht22_data_t *data)
     return NULL;
   }
 
-  if (!cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c)) {
-    ESP_LOGE(dht22_tag, "Failed to add temperature_c to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "temperature_f", data->temperature_f)) {
-    ESP_LOGE(dht22_tag, "Failed to add temperature_f  to JSON.");
-    cJSON_Delete(json);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(json, "humidity", data->humidity)) {
-    ESP_LOGE(dht22_tag, "Failed to add humidity to JSON.");
+  if (!cJSON_AddNumberToObject(json, "temperature_f", data->temperature_f) ||
+      !cJSON_AddNumberToObject(json, "temperature_c", data->temperature_c) ||
+      !cJSON_AddNumberToObject(json, "humidity", data->humidity)) {
+    ESP_LOGE(dht22_tag, "Failed to add sensor data to JSON.");
     cJSON_Delete(json);
     return NULL;
   }
@@ -289,99 +279,74 @@ char *dht22_data_to_json(const dht22_data_t *data)
 esp_err_t dht22_init(void *sensor_data)
 {
   dht22_data_t *dht22_data = (dht22_data_t *)sensor_data;
-  ESP_LOGI(dht22_tag, "Starting Configuration");
+  ESP_LOGI(dht22_tag, "Starting DHT22 Configuration");
 
-  /* TODO: Initialize error handler */
+  dht22_data->temperature_f = -1.0;
+  dht22_data->temperature_c = -1.0;
+  dht22_data->humidity      = -1.0;
+  dht22_data->state        = k_dht22_uninitialized;
 
-  dht22_data->humidity           = -1.0;
-  dht22_data->temperature_f      = -1.0;
-  dht22_data->temperature_c      = -1.0;
-  dht22_data->state              = k_dht22_uninitialized; /* Start uninitialized */
-  dht22_data->retry_count        = 0;
-  dht22_data->retry_interval     = dht22_initial_retry_interval;
-  dht22_data->last_attempt_ticks = 0;
-  dht22_data->fail_count         = 0;
+  /* Initialize error handler */
+  error_handler_init(&dht22_data->error_handler,
+                    dht22_tag,
+                    dht22_allowed_fail_attempts,
+                    dht22_max_retries,
+                    dht22_initial_retry_interval,
+                    dht22_max_backoff_interval);
 
   esp_err_t ret = priv_dht22_gpio_init(dht22_data_io);
   if (ret != ESP_OK) {
-    ESP_LOGE(dht22_tag, "Failed to configure GPIO: %s", esp_err_to_name(ret));
+    ESP_LOGE(dht22_tag, "GPIO initialization failed");
     return ret;
   }
 
-  gpio_set_level(dht22_data_io, 1);
   dht22_data->state = k_dht22_ready;
-  ESP_LOGI(dht22_tag, "Sensor Configuration Complete");
+  ESP_LOGI(dht22_tag, "DHT22 Configuration Complete");
   return ESP_OK;
 }
 
 esp_err_t dht22_read(dht22_data_t *sensor_data)
 {
-  if (sensor_data == NULL) {
-    ESP_LOGE(dht22_tag, "Sensor data pointer is NULL");
-    return ESP_FAIL;
-  }
+  uint8_t data_buffer[5] = { 0 };
 
-  uint8_t   data_buffer[5] = {0};
-  esp_err_t ret;
-
-  /* Send start signal and wait for response */
+  /* Send start signal and wait for sensor response */
   priv_dht22_send_start_signal();
   gpio_set_direction(dht22_data_io, GPIO_MODE_INPUT);
 
-  ret = priv_dht22_wait_for_response();
-  if (ret != ESP_OK) {
-    sensor_data->fail_count++;
+  if (priv_dht22_wait_for_response() != ESP_OK) {
     sensor_data->state = k_dht22_error;
-    ESP_LOGE(dht22_tag, "Failed to receive response from DHT22");
     return ESP_FAIL;
   }
 
-  /* Read data bits */
-  ret = priv_dht22_read_data_bits(data_buffer);
-  if (ret != ESP_OK) {
-    sensor_data->fail_count++;
+  /* Read 40 bits of data */
+  if (priv_dht22_read_data_bits(data_buffer) != ESP_OK) {
     sensor_data->state = k_dht22_error;
-    ESP_LOGE(dht22_tag, "Failed to read data bits from DHT22");
     return ESP_FAIL;
   }
 
   /* Verify checksum */
-  ret = priv_dht22_verify_checksum(data_buffer);
-  if (ret != ESP_OK) {
-    sensor_data->fail_count++;
+  if (priv_dht22_verify_checksum(data_buffer) != ESP_OK) {
     sensor_data->state = k_dht22_error;
-    ESP_LOGE(dht22_tag, "Checksum verification failed");
     return ESP_FAIL;
   }
 
-  sensor_data->fail_count = 0; /* Reset count on successful read */
+  /* Convert raw data to temperature and humidity values */
+  uint16_t raw_humidity = (data_buffer[0] << 8) | data_buffer[1];
+  uint16_t raw_temp     = (data_buffer[2] << 8) | data_buffer[3];
 
-  /* Convert raw data to meaningful values */
-  sensor_data->humidity      = ((data_buffer[0] << 8) + data_buffer[1]) * 0.1f;
-  sensor_data->temperature_c = (((data_buffer[2] & 0x7F) << 8) + data_buffer[3]) * 0.1f;
-  sensor_data->temperature_f = sensor_data->temperature_c * 9.0 / 5.0 + 32; /* Convert Celsius to Fahrenheit */
-
-  /* Handle negative temperatures */
-  if (data_buffer[2] & 0x80) {
+  sensor_data->humidity      = raw_humidity / 10.0;
+  sensor_data->temperature_c = (raw_temp & 0x7FFF) / 10.0;
+  if (raw_temp & 0x8000) {
     sensor_data->temperature_c = -sensor_data->temperature_c;
-    sensor_data->temperature_f = -sensor_data->temperature_f;
   }
+  sensor_data->temperature_f = (sensor_data->temperature_c * 1.8) + 32.0;
 
   sensor_data->state = k_dht22_data_updated;
+  ESP_LOGI(dht22_tag, "Temperature: %.1f°C (%.1f°F), Humidity: %.1f%%",
+            sensor_data->temperature_c, sensor_data->temperature_f,
+            sensor_data->humidity);
 
-  ESP_LOGI(dht22_tag,
-           "Temperature: %.1f F (%.1f C), Humidity: %.1f %%",
-           sensor_data->temperature_f,
-           sensor_data->temperature_c,
-           sensor_data->humidity);
   return ESP_OK;
-}
-
-void dht22_reset_on_error(dht22_data_t *sensor_data)
-{
-  if (sensor_data->fail_count >= dht22_allowed_fail_attempts) {
-    /* TODO: Reset error handler */
-  }
 }
 
 void dht22_tasks(void *sensor_data)
@@ -393,8 +358,13 @@ void dht22_tasks(void *sensor_data)
       send_sensor_data_to_webserver(json);
       file_write_enqueue("dht22.txt", json);
       free(json);
+      dht22_data->error_handler.fail_count = 0; /* Reset fail count on success */
     } else {
-      dht22_reset_on_error(dht22_data);
+      dht22_data->error_handler.fail_count++;
+      error_handler_reset(&dht22_data->error_handler,
+                         dht22_data->error_handler.fail_count,
+                         dht22_init,
+                         dht22_data);
     }
     vTaskDelay(dht22_polling_rate_ticks);
   }

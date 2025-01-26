@@ -65,7 +65,7 @@ esp_err_t bh1750_init(void *sensor_data)
   bh1750_data->lux         = -1.0;
   bh1750_data->state       = k_bh1750_uninitialized;
 
-  // Initialize error handler
+  /* Initialize error handler */
   error_handler_init(&bh1750_data->error_handler,
                     bh1750_tag,
                     bh1750_allowed_fail_attempts,
@@ -146,7 +146,7 @@ void bh1750_tasks(void *sensor_data)
       send_sensor_data_to_webserver(json);
       file_write_enqueue("bh1750.txt", json);
       free(json);
-      bh1750_data->error_handler.fail_count = 0; // Reset fail count on success
+      bh1750_data->error_handler.fail_count = 0;
     } else {
       bh1750_data->error_handler.fail_count++;
       error_handler_reset(&bh1750_data->error_handler,
