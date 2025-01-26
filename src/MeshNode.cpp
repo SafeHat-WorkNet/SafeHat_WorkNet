@@ -114,19 +114,12 @@ void MeshNode::toggleLED() {
     digitalWrite(LED_PIN, ledState);
 }
 
-void MeshNode::sendMessage() {
-    if (meshStarted) {
-        String msg = "Hello from " + nodeName;
-        logMessage("Sending broadcast: " + msg);
-        mesh.sendBroadcast(msg);
-    }
-}
-
 void MeshNode::checkServer() {
     if (!serverReachable) {
         int32_t currentRSSI = WiFi.RSSI();
         
-        if (currentRSSI > bestRSSI + 5) {
+        // Try to become bridge if we have any WiFi signal
+        if (currentRSSI > -90) {  // Changed from bestRSSI + 5 to just check for reasonable signal
             bestRSSI = currentRSSI;
             
             if(WiFi.status() != WL_CONNECTED) {
@@ -148,7 +141,6 @@ void MeshNode::checkServer() {
                     String initData = "{\"node_id\": \"" + nodeName + "\", \"mac\": \"" + fullMac + "\", \"status\": \"online\"}";
                     if (sendToServer(initData)) {
                         logMessage("Successfully registered as bridge node");
-                        mesh.sendBroadcast("BRIDGE_ELECT:" + String(mesh.getNodeId()) + ":" + String(bestRSSI));
                         
                         if (!meshStarted) {
                             int channel = WiFi.channel();
@@ -168,9 +160,23 @@ void MeshNode::sendBridgeHeartbeat() {
         if (serverReachable) {
             String heartbeatData = "{\"node_id\": \"" + nodeName + "\", \"status\": \"heartbeat\", \"rssi\": " + String(WiFi.RSSI()) + "}";
             if (!sendToServer(heartbeatData)) {
-                logMessage("Heartbeat failed, relinquishing bridge role", "ERROR");
-                isBridge = false;
-                serverReachable = false;
+                // Don't immediately give up bridge role, try to reconnect
+                if(WiFi.status() != WL_CONNECTED) {
+                    logMessage("Lost WiFi, attempting to reconnect...");
+                    WiFi.begin(PI_SSID, PI_PASSWORD);
+                    int retries = 0;
+                    while (WiFi.status() != WL_CONNECTED && retries < 20) {
+                        delay(500);
+                        retries++;
+                    }
+                }
+                
+                // Only relinquish if we really can't connect
+                if (WiFi.status() != WL_CONNECTED || !checkServerConnectivity()) {
+                    logMessage("Multiple connection attempts failed, relinquishing bridge role", "ERROR");
+                    isBridge = false;
+                    serverReachable = false;
+                }
             }
         }
     } else {
@@ -205,6 +211,21 @@ void MeshNode::onReceiveCallback(uint32_t from, String &msg) {
     
     instance->logMessage("Received from " + String(from) + ": " + msg);
 
+    // Try to parse as JSON
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, msg);
+    
+    if (!error) {
+        // If this is sensor data and we're a bridge node, forward to server
+        if (doc.containsKey("type") && strcmp(doc["type"], "sensor_data") == 0) {
+            if (isBridge && serverReachable) {
+                instance->sendToServer(msg);
+            }
+            return;
+        }
+    }
+
+    // Handle bridge election messages
     if (msg.startsWith("BRIDGE_ELECT")) {
         uint32_t senderId = msg.substring(12, msg.indexOf(":")).toInt();
         int32_t senderRSSI = msg.substring(msg.lastIndexOf(":")+1).toInt();
@@ -216,13 +237,6 @@ void MeshNode::onReceiveCallback(uint32_t from, String &msg) {
                 isBridge = false;
                 serverReachable = false;
             }
-        }
-    }
-
-    if (isBridge && serverReachable && !msg.startsWith("BRIDGE")) {
-        String jsonData = "{\"from\": \"" + String(from) + "\", \"message\": \"" + msg + "\"}";
-        if (!instance->sendToServer(jsonData)) {
-            instance->logMessage("Failed to forward message to server", "ERROR");
         }
     }
 }

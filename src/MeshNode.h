@@ -19,7 +19,6 @@ public:
     void checkServer();
     void sendBridgeHeartbeat();
     void logTopology();
-    void sendMessage();
     void toggleLED();
     String getNodeName() const { return nodeName; }
     bool sendToServer(String jsonData);
@@ -30,6 +29,8 @@ public:
     // Static methods for accessing mesh
     static painlessMesh& getMesh() { return mesh; }
     static Scheduler& getScheduler() { return userScheduler; }
+    static bool isBridgeNode() { return isBridge; }
+    static bool isServerReachable() { return serverReachable; }
 
     static void onReceiveCallback(uint32_t from, String &msg);
     static void onNewConnectionCallback(uint32_t nodeId);

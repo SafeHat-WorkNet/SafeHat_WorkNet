@@ -112,21 +112,39 @@ void SensorManager::readLight() {
 }
 
 void SensorManager::sendSensorData() {
-    StaticJsonDocument<200> doc;
+    StaticJsonDocument<256> doc;
     
+    doc["type"] = "sensor_data";
     doc["node_id"] = meshNode.getNodeName();
-    doc["temperature"] = sensorData.temperature;
-    doc["humidity"] = sensorData.humidity;
-    doc["light"] = sensorData.light;
-    doc["accel_x"] = sensorData.accel.acceleration.x;
-    doc["accel_y"] = sensorData.accel.acceleration.y;
-    doc["accel_z"] = sensorData.accel.acceleration.z;
-    doc["gyro_x"] = sensorData.gyro.gyro.x;
-    doc["gyro_y"] = sensorData.gyro.gyro.y;
-    doc["gyro_z"] = sensorData.gyro.gyro.z;
+    doc["timestamp"] = millis();
+    
+    JsonObject data = doc.createNestedObject("data");
+    data["temperature"] = sensorData.temperature;
+    data["humidity"] = sensorData.humidity;
+    data["light"] = sensorData.light;
+    
+    JsonObject accel = data.createNestedObject("accelerometer");
+    accel["x"] = sensorData.accel.acceleration.x;
+    accel["y"] = sensorData.accel.acceleration.y;
+    accel["z"] = sensorData.accel.acceleration.z;
+    
+    JsonObject gyro = data.createNestedObject("gyroscope");
+    gyro["x"] = sensorData.gyro.gyro.x;
+    gyro["y"] = sensorData.gyro.gyro.y;
+    gyro["z"] = sensorData.gyro.gyro.z;
     
     String jsonString;
     serializeJson(doc, jsonString);
     
-    MeshNode::getMesh().sendBroadcast(jsonString);
+    if (jsonString.length() > 0) {
+        // If we're a bridge node and can reach server, send directly
+        if (MeshNode::isBridgeNode() && MeshNode::isServerReachable()) {
+            meshNode.sendToServer(jsonString);
+        } else {
+            // Otherwise broadcast through mesh for bridge to forward
+            MeshNode::getMesh().sendBroadcast(jsonString);
+        }
+    } else {
+        meshNode.logMessage("Failed to serialize sensor data", "ERROR");
+    }
 } 
