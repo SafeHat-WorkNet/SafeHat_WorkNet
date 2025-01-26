@@ -1,6 +1,5 @@
 #pragma once
 
-#include <painlessMesh.h>
 #include "MeshNode.h"
 
 class TaskManager {
@@ -11,12 +10,10 @@ public:
 
 private:
     MeshNode& meshNode;
-    Scheduler scheduler;
-    
     Task taskSendMessage;
     Task taskCheckServer;
-    Task taskBridgeForward;
+    Task taskBridgeHeartbeat;
     Task taskLogTopology;
-    
+
     void setupTasks();
 };

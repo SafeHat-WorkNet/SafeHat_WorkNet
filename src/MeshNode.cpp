@@ -5,10 +5,13 @@ MeshNode* MeshNode::instance = nullptr;
 bool MeshNode::isBridge = false;
 bool MeshNode::meshStarted = false;
 bool MeshNode::serverReachable = false;
-String MeshNode::nodeName = "Node" + String(ESP.getEfuseMac() % 1000);
+String MeshNode::nodeName = "";
 painlessMesh MeshNode::mesh;
 Scheduler MeshNode::userScheduler;
+uint32_t MeshNode::currentBridgeId = 0;
+int32_t MeshNode::bestRSSI = -1000;
 
+// Constants initialization
 const char* MeshNode::MESH_PREFIX = "SafeHatMesh";
 const char* MeshNode::MESH_PASSWORD = "YourSecurePassword";
 const int MeshNode::MESH_PORT = 5555;
@@ -18,109 +21,213 @@ const char* MeshNode::SERVER_URL = "http://192.168.4.1:5000/data";
 
 MeshNode::MeshNode() {
     instance = this;
+    ledState = false;
 }
 
 void MeshNode::init() {
-    Serial.printf("[%s] Setup started...\n", nodeName.c_str());
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+    
+    initNodeIdentity();
+    logMessage("Initializing SafeHat node...");
+
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
-    setupMesh();
+
+    setupMeshCallbacks();
+    logMessage("Setup complete. Node ready.");
 }
 
 void MeshNode::update() {
     if (meshStarted) {
-        getMesh().update();
+        mesh.update();
     }
 }
 
-void MeshNode::setupMesh() {
-    getMesh().init(MESH_PREFIX, MESH_PASSWORD, &getScheduler(), MESH_PORT, WIFI_AP_STA, WIFI_AUTH_WPA2_PSK);
-    getMesh().onReceive(&onReceiveCallback);
-    getMesh().onNewConnection(&onNewConnectionCallback);
-    getMesh().onChangedConnections(&onChangedConnectionsCallback);
-    getMesh().onNodeTimeAdjusted(&onNodeTimeAdjustedCallback);
-    getMesh().onNodeDelayReceived(&onNodeDelayReceivedCallback);
-    meshStarted = true;
+void MeshNode::initNodeIdentity() {
+    esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+    nodeName = "SafeHat-" + String(baseMac[4], HEX).substring(0, 2) +
+               String(baseMac[5], HEX).substring(0, 2);
+    fullMac = String(baseMac[0], HEX) + ":" + String(baseMac[1], HEX) + ":" +
+              String(baseMac[2], HEX) + ":" + String(baseMac[3], HEX) + ":" +
+              String(baseMac[4], HEX) + ":" + String(baseMac[5], HEX);
+    chipId = ESP.getEfuseMac();
 }
 
-void MeshNode::onReceiveCallback(uint32_t from, String &msg) {
-    Serial.printf("[%s] Received message from %u: %s\n", nodeName.c_str(), from, msg.c_str());
+void MeshNode::logMessage(String message, String level) {
+    String role = isBridge ? "BRIDGE" : "NODE";
+    String color = isBridge ? "\033[0;36m" : (level == "ERROR" ? "\033[0;31m" : "\033[0;32m");
 
-    if (isBridge && serverReachable) {
-        Serial.printf("[%s][BRIDGE] Forwarding message to server...\n", nodeName.c_str());
-        HTTPClient http;
-        http.begin(SERVER_URL);
-        http.addHeader("Content-Type", "application/json");
+    Serial.printf("%s[%s][%s][%s]\033[0m %s\n",
+                  color.c_str(),
+                  role.c_str(),
+                  nodeName.c_str(),
+                  level.c_str(),
+                  message.c_str());
+}
 
-        String jsonData = "{\"from\": \"" + String(from) + "\", \"message\": \"" + msg + "\"}";
-        int httpResponseCode = http.POST(jsonData);
+bool MeshNode::checkServerConnectivity() {
+    HTTPClient http;
+    http.begin(SERVER_URL);
 
-        if (httpResponseCode > 0) {
-            Serial.printf("[%s][BRIDGE] Forwarded message to server: %s\n", nodeName.c_str(), jsonData.c_str());
-        } else {
-            Serial.printf("[%s][BRIDGE] Failed to send message to server: %s\n", nodeName.c_str(), http.errorToString(httpResponseCode).c_str());
+    logMessage("Checking server connectivity...");
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode > 0) {
+        logMessage("Server response: " + String(httpResponseCode));
+        if (httpResponseCode == HTTP_CODE_OK) {
+            String payload = http.getString();
+            logMessage("Server payload: " + payload);
+            http.end();
+            return true;
         }
+    } else {
+        logMessage("Server connection failed: " + http.errorToString(httpResponseCode), "ERROR");
+    }
 
+    http.end();
+    return false;
+}
+
+bool MeshNode::sendToServer(String jsonData) {
+    HTTPClient http;
+    http.begin(SERVER_URL);
+    http.addHeader("Content-Type", "application/json");
+
+    logMessage("Sending to server: " + jsonData);
+    int httpResponseCode = http.POST(jsonData);
+
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        logMessage("Server response: " + String(httpResponseCode) + " | " + response);
         http.end();
+        return true;
+    } else {
+        logMessage("Failed to send data: " + http.errorToString(httpResponseCode), "ERROR");
+        http.end();
+        return false;
     }
 }
 
-void MeshNode::onNewConnectionCallback(uint32_t nodeId) {
-    Serial.printf("[%s] New connection: %u\n", nodeName.c_str(), nodeId);
+void MeshNode::toggleLED() {
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
 }
 
-void MeshNode::onChangedConnectionsCallback() {
-    Serial.printf("[%s] Mesh connections changed. Total nodes: %d\n", 
-        nodeName.c_str(), 
-        getMesh().getNodeList().size()
-    );
-}
-
-void MeshNode::onNodeTimeAdjustedCallback(int32_t offset) {
-    Serial.printf("[%s] Adjusted time %u. Offset = %d\n", 
-        nodeName.c_str(), 
-        getMesh().getNodeTime(), 
-        offset
-    );
-}
-
-void MeshNode::onNodeDelayReceivedCallback(uint32_t nodeId, int32_t delay) {
-    Serial.printf("[%s] Delay to node %u is %d us\n", nodeName.c_str(), nodeId, delay);
+void MeshNode::sendMessage() {
+    if (meshStarted) {
+        String msg = "Hello from " + nodeName;
+        logMessage("Sending broadcast: " + msg);
+        mesh.sendBroadcast(msg);
+    }
 }
 
 void MeshNode::checkServer() {
     if (!serverReachable) {
-        if (WiFi.status() != WL_CONNECTED) {
-            WiFi.begin(PI_SSID, PI_PASSWORD);
-            delay(5000);
-        }
-
-        if (WiFi.status() == WL_CONNECTED) {
-            HTTPClient http;
-            http.begin(SERVER_URL);
-            int httpResponseCode = http.GET();
-
-            if (httpResponseCode > 0) {
-                serverReachable = true;
-                isBridge = true;
+        int32_t currentRSSI = WiFi.RSSI();
+        
+        if (currentRSSI > bestRSSI + 5) {
+            bestRSSI = currentRSSI;
+            
+            if(WiFi.status() != WL_CONNECTED) {
+                logMessage("Connecting to Pi AP... RSSI: " + String(currentRSSI) + " dBm");
+                WiFi.begin(PI_SSID, PI_PASSWORD);
+                int retries = 0;
+                while (WiFi.status() != WL_CONNECTED && retries < 20) {
+                    delay(500);
+                    retries++;
+                }
             }
-            http.end();
+
+            if (WiFi.status() == WL_CONNECTED) {
+                if (checkServerConnectivity()) {
+                    serverReachable = true;
+                    isBridge = true;
+                    currentBridgeId = mesh.getNodeId();
+                    
+                    String initData = "{\"node_id\": \"" + nodeName + "\", \"mac\": \"" + fullMac + "\", \"status\": \"online\"}";
+                    if (sendToServer(initData)) {
+                        logMessage("Successfully registered as bridge node");
+                        mesh.sendBroadcast("BRIDGE_ELECT:" + String(mesh.getNodeId()) + ":" + String(bestRSSI));
+                        
+                        if (!meshStarted) {
+                            int channel = WiFi.channel();
+                            mesh.init(MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT, WIFI_AP_STA, WIFI_AUTH_WPA2_PSK, channel);
+                            meshStarted = true;
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 void MeshNode::sendBridgeHeartbeat() {
-    if (isBridge && serverReachable) {
-        HTTPClient http;
-        http.begin(SERVER_URL);
-        http.addHeader("Content-Type", "application/json");
-
-        String jsonData = "{\"node_id\": \"" + nodeName + "\", \"status\": \"bridge_heartbeat\"}";
-        http.POST(jsonData);
-        http.end();
+    if (isBridge) {
+        toggleLED();
+        if (serverReachable) {
+            String heartbeatData = "{\"node_id\": \"" + nodeName + "\", \"status\": \"heartbeat\", \"rssi\": " + String(WiFi.RSSI()) + "}";
+            if (!sendToServer(heartbeatData)) {
+                logMessage("Heartbeat failed, relinquishing bridge role", "ERROR");
+                isBridge = false;
+                serverReachable = false;
+            }
+        }
+    } else {
+        digitalWrite(LED_PIN, LOW);
     }
 }
 
 void MeshNode::logTopology() {
-    Serial.printf("[%s] Connected nodes: %d\n", nodeName.c_str(), getMesh().getNodeList().size());
+    String status = String("Nodes: ") + mesh.getNodeList().size() +
+                   " | RSSI: " + WiFi.RSSI() + " dBm" +
+                   " | Bridge: " + (isBridge ? nodeName : "None") +
+                   " | IP: " + WiFi.localIP().toString();
+    logMessage(status);
+}
+
+void MeshNode::setupMeshCallbacks() {
+    mesh.onReceive([](uint32_t from, String &msg) {
+        if (instance) {
+            instance->onReceiveCallback(from, msg);
+        }
+    });
+
+    mesh.onChangedConnections([]() {
+        if (instance) {
+            instance->onChangedConnectionsCallback();
+        }
+    });
+}
+
+void MeshNode::onReceiveCallback(uint32_t from, String &msg) {
+    if (!instance) return;
+    
+    instance->logMessage("Received from " + String(from) + ": " + msg);
+
+    if (msg.startsWith("BRIDGE_ELECT")) {
+        uint32_t senderId = msg.substring(12, msg.indexOf(":")).toInt();
+        int32_t senderRSSI = msg.substring(msg.lastIndexOf(":")+1).toInt();
+        
+        if (senderRSSI > bestRSSI || (senderRSSI == bestRSSI && senderId < mesh.getNodeId())) {
+            bestRSSI = senderRSSI;
+            currentBridgeId = senderId;
+            if(isBridge) {
+                isBridge = false;
+                serverReachable = false;
+            }
+        }
+    }
+
+    if (isBridge && serverReachable && !msg.startsWith("BRIDGE")) {
+        String jsonData = "{\"from\": \"" + String(from) + "\", \"message\": \"" + msg + "\"}";
+        if (!instance->sendToServer(jsonData)) {
+            instance->logMessage("Failed to forward message to server", "ERROR");
+        }
+    }
+}
+
+void MeshNode::onChangedConnectionsCallback() {
+    if (!instance) return;
+    instance->logMessage("Connections changed. Total nodes: " + String(mesh.getNodeList().size()));
 } 
