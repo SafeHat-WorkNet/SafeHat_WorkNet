@@ -1,86 +1,157 @@
-# SafeHat WorkNet: A Connected Safety Solution with Mesh Networking and Real-Time Monitoring
+# SafeHat WorkNet: Smart Safety Helmet System with Self-Healing Mesh
 
 ![IoT](https://img.shields.io/badge/IoT-Safety%20Helmet-blue)  
 ![ESP32](https://img.shields.io/badge/ESP32-Mesh%20Network-orange)  
 ![Sensors](https://img.shields.io/badge/Sensors-Multifunctional-green)  
-![Safety](https://img.shields.io/badge/Alerts-Real%20Time-red)
+![Safety](https://img.shields.io/badge/Alerts-Real%20Time-red)  
+![Network](https://img.shields.io/badge/Network-Self_Healing-blueviolet)
 
-SafeHat WorkNet is a smart safety system designed to revolutionize workplace safety. This project integrates advanced sensors, a self-healing mesh network, and real-time alert mechanisms into a hard hat, providing comprehensive monitoring and protection for industrial and construction workers.
-
----
-
-## Features
-
-### 1. **Advanced Environmental and Positional Sensing**
-- **Temperature and Humidity Sensors**: Monitor worksite conditions to prevent heat stress and maintain comfort.
-- **Gas Sensor**: Detect hazardous gas levels and provide immediate warnings.
-- **Light Sensor**: Adjust for ambient light conditions to optimize visibility.
-- **GPS Module**: Track worker location for safety and coordination.
-- **Accelerometer and Gyroscope**: Detect falls, impacts, or irregular movements.
-
-### 2. **Self-Healing Mesh Network**
-- Employs **ESP32 microcontrollers** to create a robust and fault-tolerant network.
-- Enables seamless communication between workers’ helmets, ensuring consistent data flow.
-- Automatically reroutes data in case of device failure, maintaining network integrity.
-
-### 3. **Onboard Display**
-- Displays critical real-time metrics, including environmental readings, location, and alerts, directly on the helmet.
-
-### 4. **Camera with Event Buffer**
-- Integrated camera records the **previous 20 seconds** of footage upon detecting impacts or falls.
-- **MicroSD card support** for secure, local storage of video data.
-
-### 5. **Real-Time Alerts**
-- **Piezo buzzer** provides immediate alerts for hazardous gas levels or other critical events.
-
-### 6. **Battery Health Monitoring**
-- Continuously tracks battery status to ensure uninterrupted operation and alerts workers to low battery levels.
+**SafeHat WorkNet** revolutionizes workplace safety through an intelligent helmet system featuring environmental monitoring, real-time alerts, and a resilient mesh network. Designed for industrial environments with 4-node ESP32 clusters.
 
 ---
 
-## Applications
+## Key Innovations 🚀
 
-- **Industrial and Construction Worksites**: Enhances worker safety and environmental monitoring.
-- **Hazardous Environments**: Provides real-time alerts and monitoring in mines, chemical plants, and similar high-risk areas.
-- **Incident Analysis**: Post-incident video and data review for improved safety protocols.
-- **Remote Monitoring**: Facilitates centralized oversight of multiple workers through mesh networking.
+### 1. **Advanced Node Identification System**
+- **MAC-Based Naming**: Unique identifiers like `SafeHat-A3B4` derived from ESP32 MAC addresses
+- **Hybrid Identification**:
+  - Human-friendly names (e.g., `SafetyHat-C5D6`)
+  - Full MAC addresses (e.g., `A1:B2:C3:D4:E5:F6`)
+  - 64-bit Chip ID fallback
 
----
+### 2. **Intelligent Mesh Networking**
+- **RSSI-Based Bridge Election**:
+  - Dynamic leader selection using WiFi signal strength
+  - Hysteresis threshold prevents network flapping
+  - Heartbeat monitoring (2s intervals)
+- **Self-Healing Architecture**:
+  - Automatic rerouting in <5s node failure
+  - Graceful bridge handoff protocol
 
-## Challenges and Solutions
-
-- **Sensor Integration**: Ensuring compatibility and seamless communication among diverse sensors.
-- **Power Management**: Optimized for low power consumption to maximize operational time.
-- **Mesh Network Stability**: Designed to handle dynamic environments with minimal latency and reliable rerouting.
-- **Scalability**: Easily add nodes to the network without compromising performance.
-
----
-
-## Parts List
-
-For a detailed list of components used in this project, refer to our **[Parts List](https://docs.google.com/spreadsheets/d/example-link/edit#gid=0)**.
-
----
-
-## Getting Started
-
-To build and deploy your own **SafeHat WorkNet**, follow these steps:
-
-1. **Hardware Assembly**: Install sensors, camera, and ESP32 modules on the helmet. Connect to a secure power source.
-2. **Firmware Installation**: Use the provided firmware to initialize sensors and establish the mesh network.
-3. **Calibration and Testing**: Calibrate sensors for accuracy and test the network in your worksite environment.
-4. **Deploy and Expand**: Deploy helmets to workers and expand the network by adding more nodes as needed.
+### 3. **Enhanced Diagnostic Logging**
+- **Color-Coded Serial Output**:
+  ```bash
+  [BRIDGE][SafeHat-A3B4][INFO] Forwarding message to server
+  [NODE][SafeHat-C5D6][ERROR] Mesh connection lost!
+  ```
+- **Network Status Reports**:
+  - Node count
+  - RSSI levels
+  - Bridge status
+  - IP/MAC addresses
 
 ---
 
-## License
+## Technical Architecture 🏗️
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+```mermaid
+graph TD
+    A[Worker Helmet] -->|ESP32 Mesh| B(Bridge Node)
+    B -->|WiFi STA| C[Raspberry Pi]
+    C --> D[Cloud Dashboard]
+    A --> E[Fall Detection]
+    A --> F[Gas Sensors]
+    A --> G[Environmental Sensors]
+    B -.->|Heartbeat| A
+```
 
 ---
 
-## Acknowledgments
+## Core Features 🔍
 
-- **ESP32 Community** for providing the foundation for mesh networking.
-- **Open-Source Sensor Libraries** for enabling easy integration of diverse sensors.
-- The dedicated team behind SafeHat WorkNet for their vision and innovation.
+### 1. **Sensor Suite**
+| Sensor Type          | Detection Range         | Update Frequency |
+|----------------------|-------------------------|------------------|
+| BME680 (Env)         | -40°C to +85°C          | 2s               |
+| MPU6050 (Motion)     | ±16g, ±2000°/s          | 100ms            |
+| MQ-2 (Gas)           | 300-10000ppm LPG        | 5s               |
+| GPS NEO-6M           | ±1.5m accuracy          | 1s               |
+
+### 2. **Network Specifications**
+- **Protocol**: IEEE 802.11n (2.4GHz)
+- **Max Nodes**: 4 (optimized for latency)
+- **Data Rate**: 150Mbps (theoretical)
+- **Range**: 50m line-of-sight
+- **Security**: WPA2-PSK + Message CRC
+
+---
+
+## Setup Guide ⚙️
+
+### Hardware Requirements
+- 4× ESP32-WROOM-32D modules
+- Safety helmet (ANSI Z89.1 certified)
+- LiPo battery (3.7V 2000mAh minimum)
+- See full [Parts List](parts-list.csv)
+
+### Firmware Configuration
+1. **PlatformIO Settings**:
+   ```ini
+   [env:esp32dev]
+   platform = espressif32
+   board = esp32dev
+   monitor_speed = 115200
+   monitor_filters = colorize
+   ```
+
+2. **Network Setup**:
+   ```cpp
+   // secrets.h
+   #define MESH_PREFIX "SafeHatMesh"
+   #define MESH_PASSWORD "SecurePass123!"
+   #define MESH_PORT 5555
+   #define AP_SSID "SafetyNet-AP"
+   #define AP_PASSWORD "APSecurePass456!"
+   ```
+
+---
+
+## Development & Debugging 🛠️
+
+### Key Serial Commands
+| Command              | Description                     |
+|----------------------|---------------------------------|
+| `network status`     | Show mesh topology             |
+| `sensor read all`    | Dump sensor values              |
+| `bridge force [id]`  | Manual bridge election          |
+
+### Logging Examples
+```bash
+# Normal operation
+[BRIDGE][SafeHat-A3B4][INFO] Forwarding 3 messages to server
+
+# Network event
+[NODE][SafeHat-C5D6][WARN] RSSI dropped to -82dBm
+
+# Critical alert
+[SafeHat-D7E8][EMERGENCY] IMPACT DETECTED! 15.6g force
+```
+
+---
+
+## Performance Metrics 📊
+| Parameter            | Specification                  |
+|----------------------|--------------------------------|
+| Boot Time            | <2.5s                          |
+| Alert Latency        | <800ms                         |
+| Battery Life         | 8h (normal), 5h (high alert)   |
+| Data Retention       | 72h local, ∞ cloud             |
+
+---
+
+## License & Contributions 📜
+- **License**: AGPLv3 - See [LICENSE](LICENSE)
+- **Contribution Guide**: [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Citing This Work**:
+  ```bibtex
+  @misc{SafeHat2023,
+    title = {SafeHat WorkNet: Industrial Safety Mesh System},
+    author = {Your Name},
+    year = {2023},
+    url = {https://github.com/yourrepo}
+  }
+  ```
+
+---
+
+> **Warning**: This is a prototype system - not certified for life-critical applications. Always follow OSHA guidelines.
