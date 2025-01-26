@@ -25,4 +25,4 @@ void TaskManager::setupTasks() {
     taskCheckServer.enable();
     taskBridgeHeartbeat.enable();
     taskLogTopology.enable();
-}
+} 

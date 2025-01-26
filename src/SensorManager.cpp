@@ -100,7 +100,7 @@ void SensorManager::readDHT() {
     sensorData.temperature = dht.readTemperature();
     sensorData.humidity = dht.readHumidity();
     if (isnan(sensorData.temperature) || isnan(sensorData.humidity)) {
-        Serial.println("Failed to read from DHT sensor!");
+        // Serial.println("Failed to read from DHT sensor!");
     }
 }
 
