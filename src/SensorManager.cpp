@@ -68,7 +68,12 @@ void SensorManager::init() {
 }
 
 void SensorManager::update() {
-    scheduler.execute();
+    // Update sensor readings
+    for (int i = 0; i < NUM_SENSORS; i++) {
+        if (sensors[i].enabled) {
+            sensors[i].read_function();
+        }
+    }
 }
 
 void SensorManager::setupSensors() {
@@ -89,7 +94,6 @@ void SensorManager::setupSensors() {
 
 void SensorManager::readMPU() {
     mpu.getEvent(&sensorData.accel, &sensorData.gyro, &sensorData.temp);
-    sendSensorData();
 }
 
 void SensorManager::readDHT() {
@@ -97,36 +101,12 @@ void SensorManager::readDHT() {
     sensorData.humidity = dht.readHumidity();
     if (isnan(sensorData.temperature) || isnan(sensorData.humidity)) {
         Serial.println("Failed to read from DHT sensor!");
-        return;
     }
-    sendSensorData();
 }
 
 void SensorManager::readLight() {
     sensorData.light = lightMeter.readLightLevel();
     if (sensorData.light < 0) {
         Serial.println("Failed to read from BH1750 sensor!");
-        return;
     }
-    sendSensorData();
-}
-
-void SensorManager::sendSensorData() {
-    StaticJsonDocument<200> doc;
-    
-    doc["node_id"] = meshNode.getNodeName();
-    doc["temperature"] = sensorData.temperature;
-    doc["humidity"] = sensorData.humidity;
-    doc["light"] = sensorData.light;
-    doc["accel_x"] = sensorData.accel.acceleration.x;
-    doc["accel_y"] = sensorData.accel.acceleration.y;
-    doc["accel_z"] = sensorData.accel.acceleration.z;
-    doc["gyro_x"] = sensorData.gyro.gyro.x;
-    doc["gyro_y"] = sensorData.gyro.gyro.y;
-    doc["gyro_z"] = sensorData.gyro.gyro.z;
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    MeshNode::getMesh().sendBroadcast(jsonString);
 } 

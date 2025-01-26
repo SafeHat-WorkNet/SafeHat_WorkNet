@@ -10,9 +10,6 @@ public:
 
 private:
     MeshNode& meshNode;
-    Task taskSendMessage;
-    Task taskCheckServer;
-    Task taskBridgeHeartbeat;
     Task taskLogTopology;
 
     void setupTasks();
