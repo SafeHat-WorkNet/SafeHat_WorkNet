@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_BusIO_Register.h>
 #include <Adafruit_Sensor.h>
