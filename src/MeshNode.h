@@ -2,11 +2,12 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <painlessMesh.h>
 #include <esp_wifi.h>
 #include <Wire.h>
-#include <ArduinoJson.h>
-#include "dht22.h"
+#include <Adafruit_BusIO_Register.h>
+#include <Adafruit_Sensor.h>
 
 class MeshNode {
 public:
@@ -15,12 +16,16 @@ public:
     void update();
     
     // Public methods
+    void checkServer();
+    void sendBridgeHeartbeat();
     void logTopology();
+    void sendMessage();
     void toggleLED();
     String getNodeName() const { return nodeName; }
+    bool sendToServer(String jsonData);
+    bool checkServerConnectivity();
     void initNodeIdentity();
     void logMessage(String message, String level = "INFO");
-    void sendSensorDataToServer();
     
     // Static methods for accessing mesh
     static painlessMesh& getMesh() { return mesh; }
@@ -31,17 +36,17 @@ public:
     static void onChangedConnectionsCallback();
     static void onNodeTimeAdjustedCallback(int32_t offset);
     static void onNodeDelayReceivedCallback(uint32_t nodeId, int32_t delay);
-    
-    // Interrupt handler
-    static void IRAM_ATTR handleTriggerInterrupt();
 
 private:
     static MeshNode* instance;
+    static bool isBridge;
     static bool meshStarted;
+    static bool serverReachable;
     static String nodeName;
     static painlessMesh mesh;
     static Scheduler userScheduler;
-    static volatile bool triggerFlag;  // Flag set by interrupt handler
+    static uint32_t currentBridgeId;
+    static int32_t bestRSSI;
     
     // Node identification
     uint8_t baseMac[6];
@@ -49,17 +54,15 @@ private:
     uint64_t chipId;
     bool ledState;
     
-    // Sensors
-    DHT22Sensor dht;
-    
     void setupMesh();
     void setupMeshCallbacks();
-    void setupInterrupt();
 
     // Constants
     static const char* MESH_PREFIX;
     static const char* MESH_PASSWORD;
     static const int MESH_PORT;
+    static const char* PI_SSID;
+    static const char* PI_PASSWORD;
+    static const char* SERVER_URL;
     static const int LED_PIN = 2;
-    static const int TRIGGER_PIN = 13;
 }; 
