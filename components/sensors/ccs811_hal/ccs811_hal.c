@@ -1,5 +1,7 @@
 /* components/sensors/ccs811_hal/ccs811_hal.c */
 
+/* TODO: Add Wake, Reset, and Interrupt GPIOs */
+
 #include "ccs811_hal.h"
 #include "file_write_manager.h"
 #include "webserver_tasks.h"
