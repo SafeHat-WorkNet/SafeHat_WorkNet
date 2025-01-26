@@ -247,10 +247,10 @@ esp_err_t gy_neo6mv2_init(void *sensor_data)
                     gy_neo6mv2_max_backoff_interval);
 
   /* Initialize UART */
-  esp_err_t ret = priv_uart_init(gy_neo6mv2_uart_num,
-                                gy_neo6mv2_uart_baudrate,
-                                gy_neo6mv2_tx_io,
+  esp_err_t ret = priv_uart_init(gy_neo6mv2_tx_io,
                                 gy_neo6mv2_rx_io,
+                                gy_neo6mv2_uart_baudrate,
+                                gy_neo6mv2_uart_num,
                                 gy_neo6mv2_tag);
   if (ret != ESP_OK) {
     ESP_LOGE(gy_neo6mv2_tag, "UART initialization failed");
