@@ -11,6 +11,7 @@ extern "C" {
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -47,17 +48,14 @@ typedef enum : uint8_t {
  * @brief Structure for managing DHT22 sensor data and state.
  *
  * Contains the latest temperature and humidity readings from the DHT22 sensor,
- * as well as state and retry management variables for error handling and reinitialization.
+ * as well as state information and error handling through the error_handler_t structure.
  */
 typedef struct {
-  float      temperature_f;      /**< Latest temperature reading in Fahrenheit. */
-  float      temperature_c;      /**< Latest temperature reading in Celsius. */
-  float      humidity;           /**< Latest humidity reading as a percentage. */
-  uint8_t    state;              /**< Current operational state of the sensor (see dht22_states_t). */
-  uint8_t    retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t   retry_interval;     /**< Current interval between reinitialization attempts, in ticks. */
-  TickType_t last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
-  uint8_t    fail_count;         /**< Number of current amount of fail reads */
+  float           temperature_f;  /**< Latest temperature reading in Fahrenheit. */
+  float           temperature_c;  /**< Latest temperature reading in Celsius. */
+  float           humidity;       /**< Latest humidity reading as a percentage. */
+  uint8_t         state;         /**< Current operational state of the sensor (see dht22_states_t). */
+  error_handler_t error_handler; /**< Error handler for managing sensor errors and recovery. */
 } dht22_data_t;
 
 /* Public Functions ***********************************************************/
@@ -118,33 +116,18 @@ esp_err_t dht22_init(void *sensor_data);
 esp_err_t dht22_read(dht22_data_t *sensor_data);
 
 /**
- * @brief Handles error recovery for the DHT22 sensor using exponential backoff.
- *
- * Attempts to reinitialize the DHT22 sensor when an error is detected. Uses an 
- * exponential backoff strategy to manage retry intervals and reduce system load 
- * during repeated failures. Resets retry logic on successful recovery.
- *
- * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure managing 
- *                            sensor state and retries.
- *
- * @note 
- * - Call this function periodically within the sensor task to handle errors.
- */
-void dht22_reset_on_error(dht22_data_t *sensor_data);
-
-/**
- * @brief Periodically reads data from the DHT22 sensor and manages errors.
+ * @brief Executes periodic tasks for the DHT22 sensor.
  *
  * Designed to run within a FreeRTOS task, this function continuously reads data 
  * from the DHT22 sensor at intervals defined by `dht22_polling_rate_ticks`. It 
- * handles errors by invoking `dht22_reset_on_error` with an exponential backoff strategy.
+ * handles errors using the error_handler_t with an exponential backoff strategy.
  *
  * @param[in,out] sensor_data Pointer to the `dht22_data_t` structure for managing 
  *                            sensor data and state.
  *
  * @note 
  * - Execute this function as part of a FreeRTOS task for continuous operation.
- * - Includes error handling to ensure reliable data acquisition.
+ * - Uses error_handler_t for error recovery to maintain stable operation.
  */
 void dht22_tasks(void *sensor_data);
 

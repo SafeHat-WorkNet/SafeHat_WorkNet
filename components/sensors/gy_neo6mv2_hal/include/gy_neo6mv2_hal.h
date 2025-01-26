@@ -12,6 +12,7 @@ extern "C" {
 #include "freertos/semphr.h"
 #include "esp_err.h"
 #include "driver/uart.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -24,6 +25,7 @@ extern const uint32_t    gy_neo6mv2_polling_rate_ticks;     /**< Polling interva
 extern const uint8_t     gy_neo6mv2_max_retries;            /**< Maximum retry attempts for GY-NEO6MV2 reinitialization. */
 extern const uint32_t    gy_neo6mv2_initial_retry_interval; /**< Initial retry interval for GY-NEO6MV2 in system ticks. */
 extern const uint32_t    gy_neo6mv2_max_backoff_interval;   /**< Maximum backoff interval for GY-NEO6MV2 retries in ticks. */
+extern const uint8_t     gy_neo6mv2_allowed_fail_attempts;  /**< Number of allowed consecutive failures before reset. */
 
 /* Macros *********************************************************************/
 
@@ -52,20 +54,18 @@ typedef enum : uint8_t {
  *
  * Contains GPS data such as latitude, longitude, speed, and UTC time, along with
  * diagnostic information like fix status, satellite count, horizontal dilution
- * of precision (HDOP), and retry management fields for error handling.
+ * of precision (HDOP), and error handling through the error_handler_t structure.
  */
 typedef struct {
-  float               latitude;           /**< Latitude in decimal degrees. Negative values indicate South. */
-  float               longitude;          /**< Longitude in decimal degrees. Negative values indicate West. */
-  float               speed;              /**< Speed over ground in meters per second. */
-  char                time[11];           /**< UTC time in HHMMSS.SS format. */
-  uint8_t             fix_status;         /**< GPS fix status (0: no fix, 1: fix acquired). */
-  uint8_t             satellite_count;    /**< Number of satellites used in the solution. */
-  float               hdop;               /**< Horizontal Dilution of Precision (accuracy; lower values are better). */
-  gy_neo6mv2_states_t state;              /**< Current operational state of the GPS module. */
-  uint8_t             retry_count;        /**< Number of consecutive reinitialization attempts. */
-  uint32_t            retry_interval;     /**< Current interval between retry attempts, in ticks. */
-  TickType_t          last_attempt_ticks; /**< Tick count of the last reinitialization attempt. */
+  float               latitude;        /**< Latitude in decimal degrees. Negative values indicate South. */
+  float               longitude;       /**< Longitude in decimal degrees. Negative values indicate West. */
+  float               speed;           /**< Speed over ground in meters per second. */
+  char                time[11];        /**< UTC time in HHMMSS.SS format. */
+  uint8_t             fix_status;      /**< GPS fix status (0: no fix, 1: fix acquired). */
+  uint8_t             satellite_count; /**< Number of satellites used in the solution. */
+  float               hdop;            /**< Horizontal Dilution of Precision (accuracy; lower values are better). */
+  gy_neo6mv2_states_t state;          /**< Current operational state of the GPS module. */
+  error_handler_t     error_handler;   /**< Error handler for managing sensor errors and recovery. */
 } gy_neo6mv2_data_t;
 
 /**
@@ -132,23 +132,10 @@ esp_err_t gy_neo6mv2_init(void *sensor_data);
 esp_err_t gy_neo6mv2_read(gy_neo6mv2_data_t *sensor_data);
 
 /**
- * @brief Manages error recovery for the GY-NEO6MV2 GPS module using exponential backoff.
- *
- * Attempts to reinitialize the GPS module when an error is detected. Uses an exponential 
- * backoff strategy to manage retry intervals and prevent excessive retries.
- *
- * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure managing 
- *                            GPS state and retries.
- *
- * @note Call periodically within `gy_neo6mv2_tasks` for error handling.
- */
-void gy_neo6mv2_reset_on_error(gy_neo6mv2_data_t *sensor_data);
-
-/**
  * @brief Periodically reads GPS data and manages errors for the GY-NEO6MV2 GPS module.
  *
  * Continuously reads GPS data at intervals defined by `gy_neo6mv2_polling_rate_ticks`. 
- * Handles errors using `gy_neo6mv2_reset_on_error` with exponential backoff. Designed 
+ * Handles errors using the error_handler_t with exponential backoff. Designed 
  * to run as part of a FreeRTOS task.
  *
  * @param[in,out] sensor_data Pointer to the `gy_neo6mv2_data_t` structure for GPS 

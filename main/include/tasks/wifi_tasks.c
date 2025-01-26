@@ -16,7 +16,7 @@ const char    *wifi_tag                = "WiFi";
 const uint8_t  wifi_max_retry          = 10;
 const uint8_t  wifi_ssid_max_len       = 32;
 const uint8_t  wifi_pass_max_len       = 32;
-const uint32_t wifi_connect_timeout_ms = 30000;
+const uint32_t wifi_connect_timeout_ms = 30;
 
 /* Globals (Static) ***********************************************************/
 

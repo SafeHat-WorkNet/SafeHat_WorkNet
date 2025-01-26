@@ -11,6 +11,7 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "driver/i2c.h"
+#include "error_handler.h"
 
 /* Constants ******************************************************************/
 
@@ -24,6 +25,10 @@ extern const uint32_t   mpu6050_polling_rate_ticks; /**< Polling interval for MP
 extern const uint8_t    mpu6050_sample_rate_div;    /**< Sample rate divider for MPU6050 (default divides gyro rate). */
 extern const uint8_t    mpu6050_config_dlpf;        /**< Digital Low Pass Filter (DLPF) setting for noise reduction. */
 extern const uint8_t    mpu6050_int_io;             /**< GPIO pin for MPU6050 interrupt signal (INT pin). */
+extern const uint8_t    mpu6050_max_retries;        /**< Maximum retry attempts for MPU6050 reinitialization. */
+extern const uint32_t   mpu6050_initial_retry_interval; /**< Initial retry interval for MPU6050 in system ticks. */
+extern const uint32_t   mpu6050_max_backoff_interval;   /**< Maximum backoff interval for MPU6050 retries in ticks. */
+extern const uint8_t    mpu6050_allowed_fail_attempts;  /**< Number of allowed consecutive failures before reset. */
 
 /* Enums **********************************************************************/
 
@@ -205,7 +210,7 @@ typedef struct {
  * @brief Structure to store MPU6050 sensor data and state.
  *
  * Contains accelerometer and gyroscope readings, temperature, operational state,
- * and semaphore for signaling data readiness. Also holds I2C communication details.
+ * semaphore for signaling data readiness, and error handling through the error_handler_t structure.
  */
 typedef struct {
   uint8_t           i2c_address;    /**< I2C address used for communication with the sensor. */
@@ -219,6 +224,7 @@ typedef struct {
   float             temperature;    /**< Measured temperature from the sensor in degrees Celsius. */
   uint8_t           state;          /**< Current operational state of the sensor (see `mpu6050_states_t`). */
   SemaphoreHandle_t data_ready_sem; /**< Semaphore to signal when new data is available. */
+  error_handler_t   error_handler;  /**< Error handler for managing sensor errors and recovery. */
 } mpu6050_data_t;
 
 /* Public Functions ***********************************************************/
@@ -251,7 +257,7 @@ char *mpu6050_data_to_json(const mpu6050_data_t *data);
  *
  * @return 
  * - `ESP_OK` on success.
- * - Relevant `esp_err_t` codes on failure.
+ * - Relevant `esp_err_t` code on failure.
  *
  * @note 
  * - Call this function during system initialization.
@@ -262,7 +268,7 @@ esp_err_t mpu6050_init(void *sensor_data);
  * @brief Reads accelerometer and gyroscope data from the MPU6050 sensor.
  *
  * Retrieves the latest measurements from the MPU6050 sensor and updates the 
- * `mpu6050_data_t` structure.
+ * `mpu6050_data_t` structure with the new data.
  *
  * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure to store
  *                            the sensor data and read status.
@@ -277,32 +283,17 @@ esp_err_t mpu6050_init(void *sensor_data);
 esp_err_t mpu6050_read(mpu6050_data_t *sensor_data);
 
 /**
- * @brief Handles reinitialization and recovery for the MPU6050 sensor.
- *
- * Implements exponential backoff for reinitialization attempts when errors are
- * detected. Resets retry counters on successful recovery.
- *
- * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure managing
- *                            the sensor state and retry information.
- *
- * @note 
- * - Call this function periodically within `mpu6050_tasks`.
- * - Limits retries based on `mpu6050_max_backoff_interval`.
- */
-void mpu6050_reset_on_error(mpu6050_data_t *sensor_data);
-
-/**
  * @brief Executes periodic tasks for the MPU6050 sensor.
  *
- * Periodically reads data and handles errors for the MPU6050 sensor. Uses
- * `mpu6050_reset_on_error` for recovery. Intended to run in a FreeRTOS task.
+ * Periodically reads data and handles errors for the MPU6050 sensor using
+ * the error handler for recovery. Intended to run in a FreeRTOS task.
  *
  * @param[in,out] sensor_data Pointer to the `mpu6050_data_t` structure for managing
  *                            sensor data and error recovery.
  *
  * @note 
  * - Should run at intervals defined by `mpu6050_polling_rate_ticks`.
- * - Handles error recovery internally to maintain stable operation.
+ * - Uses error_handler_t for error recovery to maintain stable operation.
  */
 void mpu6050_tasks(void *sensor_data);
 
