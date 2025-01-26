@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP Node Dashboard</title>
+    <style>
+        /* General Styles */
+        body {
+            background-color: #1e293b; /* Dark blue-gray */
+            color: #e2e8f0; /* Light text color */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+	    overflow: auto;
+	    scrollbar-width: none;
+	    -ms-overflow-style: none;
+        }
+
+	body::-webkit-scrollbar {
+	    display: none;
+	}
+
+        h1, h2 {
+            text-align: center;
+            color: #f8fafc; /* Off-white */
+        }
+
+        /* Layout Styles */
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .top-section, .bottom-section {
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .top-section {
+            border-bottom: 2px solid #64748b; /* Divider line */
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #64748b; /* Lighter gray border */
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #334155; /* Slightly lighter than background */
+            color: #f8fafc;
+        }
+
+        tr:nth-child(even) {
+            background-color: #2d3748; /* Alternate row color */
+        }
+
+        /* Root Node Style */
+        .root-node {
+            font-weight: bold;
+        }
+
+        /* Status-Based Colors */
+        .status-normal {
+            color: green;
+        }
+
+        .status-warning {
+            color: yellow;
+        }
+
+        .status-critical {
+            color: red;
+        }
+
+        /* Log Styles */
+        .log-container {
+            background-color: #334155; /* Slightly lighter than background */
+            padding: 10px;
+            border-radius: 5px;
+            height: 100%;
+            overflow-y: auto;
+	    scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+	.log-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #2d3748; /* Alternate row color */
+            border-radius: 5px;
+        }
+
+        .log-entry span {
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        async function fetchLatestData() {
+            try {
+                const response = await fetch('/latest');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    const nodes = result.data.nodes;
+
+                    const tableBody = document.getElementById('nodes-table-body');
+                    tableBody.innerHTML = ''; // Clear previous rows
+
+                    nodes.forEach(node => {
+                        // Determine status class based on the status text
+                        let statusClass = '';
+                        const status = Array.from(node.status).join(', '); // Convert status set to string
+                        // if (status === 'System Normal') {
+                        //     statusClass = 'status-normal';
+                        if (status.startsWith('Warn -')) {
+                            statusClass = 'status-warning';
+                        } else if (status.startsWith('Critical -')) {
+                            statusClass = 'status-critical';
+                        }
+
+                        // Create a table row with the appropriate class
+                        const row = `
+                            <tr class="${node.type === 'root_node' ? 'root-node' : ''} ${statusClass}">
+                                <td>${node.node}</td>
+                                <td>${node.type}</td>
+                                <td>${status}</td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+
+                        // Add to the log as a dummy event
+                        addLog(`Node ${node.node} has status: ${status}`);
+                    });
+                } else {
+                    console.error(result.message);
+                    // alert("Error fetching data: " + result.message);
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                // alert("Error fetching data.");
+            }
+        }
+
+        function addLog(message) {
+            const logContainer = document.getElementById('log-container');
+            const timestamp = new Date().toLocaleString();
+          
+            // Create a new log entry element
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span>[${timestamp}]</span> ${message}`;
+
+            // Prepend the new log entry to the top of the container
+            logContainer.prepend(logEntry);
+        }
+
+        // Fetch data periodically
+        setInterval(fetchLatestData, 5000); // Refresh every 5 seconds
+    </script>
+</head>
+<body onload="fetchLatestData()">
+    <div class="dashboard-container">
+        <!-- Top Section: Table -->
+        <div class="top-section">
+            <h1>ESP Node Dashboard</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Node</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="nodes-table-body">
+                    <!-- Data will be dynamically inserted here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Bottom Section: Event Log -->
+        <div class="bottom-section">
+            <h2>Event Log</h2>
+            <div class="log-container" id="log-container">
+                <!-- Logs will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+</body>
+</html>

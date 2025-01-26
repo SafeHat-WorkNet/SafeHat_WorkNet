@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP Node Dashboard</title>
+    <style>
+        /* General Styles */
+        body {
+            background-color: #1e293b; /* Dark blue-gray */
+            color: #e2e8f0; /* Light text color */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #f8fafc; /* Off-white */
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #64748b; /* Lighter gray border */
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #334155; /* Slightly lighter than background */
+            color: #f8fafc;
+        }
+
+        tr:nth-child(even) {
+            background-color: #2d3748; /* Alternate row color */
+        }
+
+        /* Root Node Style */
+        .root-node {
+            color: yellow;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        async function fetchLatestData() {
+            try {
+                const response = await fetch('/latest');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    const nodes = result.data.nodes;
+
+                    const tableBody = document.getElementById('nodes-table-body');
+                    tableBody.innerHTML = ''; // Clear previous rows
+
+                    nodes.forEach(node => {
+                        const row = `
+                            <tr class="${node.type === 'root_node' ? 'root-node' : ''}">
+                                <td>${node.node}</td>
+                                <td>${node.type}</td>
+                                <td>${Array.from(node.status).join(', ')}</td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    });
+                } else {
+                    console.error(result.message);
+                    // alert("Error fetching data: " + result.message);
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                // alert("Error fetching data.");
+            }
+        }
+
+        // Fetch data periodically
+        setInterval(fetchLatestData, 5000); // Refresh every 5 seconds
+    </script>
+</head>
+<body onload="fetchLatestData()">
+    <h1>ESP Node Dashboard</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Node</th>
+                <th>Type</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="nodes-table-body">
+            <!-- Data will be dynamically inserted here -->
+        </tbody>
+    </table>
+</body>
+</html>
+
