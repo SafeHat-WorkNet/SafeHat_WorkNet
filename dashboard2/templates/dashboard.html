@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sensor Logs Dashboard</title>
+    <!-- Load Chart.js from a CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2, h3 {
+            margin: 0.5em 0 0.25em;
+        }
+        .charts-section, .tables-section {
+            margin-bottom: 40px;
+        }
+        .chart-wrapper {
+            margin: 30px 0;
+            width: 95%;
+            max-width: 1000px; /* Wider for more detail */
+            height: 500px;     /* Fixed height for larger display */
+            position: relative; /* So the chart can size itself properly */
+        }
+        /* Table styling */
+        table {
+            border-collapse: collapse;
+            width: 95%;
+            margin-bottom: 2em;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        thead {
+            background-color: #f7f7f7;
+        }
+        .timestamp {
+            width: 160px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Sensor Logs Dashboard</h1>
+
+    <!--
+        PART 1: CHARTS SECTION (displayed first)
+        We'll create an interactive line chart for each sensor using Chart.js.
+    -->
+    <div class="charts-section">
+        <h2>Charts: Detailed & Interactive</h2>
+        <p>Explore the sensor data visually. Hover over points for exact values.</p>
+
+        {% for sensor_name, entries in all_data.items() %}
+            {% if entries %}
+                <div>
+                    <h3>{{ sensor_name }} Graph</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="{{ sensor_name }}Chart"></canvas>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!--
+        PART 2: TABLES SECTION (displayed after charts)
+        We reuse the standard approach of enumerating sensor fields.
+    -->
+    <div class="tables-section">
+        <h2>Raw Data Tables</h2>
+        <p>Each sensor’s parsed log data in table form:</p>
+
+        {% for sensor_name, entries in all_data.items() %}
+            <h3>{{ sensor_name }}</h3>
+            {% if entries %}
+            <table>
+                <thead>
+                    <tr>
+                        <th class="timestamp">Timestamp</th>
+                        {% set sample_entry = entries[0] if entries else {} %}
+                        {% for key, value in sample_entry.items() if key not in ['timestamp', 'sensor_type'] %}
+                            <th>{{ key }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr>
+                        <td>{{ entry.timestamp }}</td>
+                        {% for key, value in entry.items() if key not in ['timestamp', 'sensor_type'] %}
+                        <td>{{ value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+                <p>No data found for <strong>{{ sensor_name }}</strong>.</p>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!--
+        PART 3: SCRIPT: Build Chart.js datasets & configure them for detailed visuals
+    -->
+    <script>
+        // Expose all sensor data to JS
+        const allSensorData = {
+            {% for sensor_name, entries in all_data.items() %}
+                "{{ sensor_name }}": {{ entries|tojson }},
+            {% endfor %}
+        };
+
+        // Generate random color for lines
+        function getRandomColor() {
+            const r = Math.floor(Math.random() * 256);
+            const g = Math.floor(Math.random() * 256);
+            const b = Math.floor(Math.random() * 256);
+            return `rgba(${r}, ${g}, ${b}, 1)`; // Full opacity for strong lines
+        }
+
+        function createCharts() {
+            Object.keys(allSensorData).forEach(sensor => {
+                const entries = allSensorData[sensor];
+                if (!entries || entries.length === 0) return;
+
+                // Use the prefix/timestamp for x-axis labels
+                const labels = entries.map((e, idx) => e.timestamp || `Row ${idx+1}`);
+
+                // Identify numeric fields
+                let numericFieldsSet = new Set();
+                entries.forEach(entry => {
+                    Object.keys(entry).forEach(key => {
+                        if (['timestamp', 'sensor_type'].includes(key)) return;
+                        if (typeof entry[key] === 'number') {
+                            numericFieldsSet.add(key);
+                        }
+                    });
+                });
+                const numericFields = Array.from(numericFieldsSet);
+
+                // Build datasets for each numeric field
+                const datasets = numericFields.map(field => {
+                    const color = getRandomColor();
+                    return {
+                        label: field,
+                        data: entries.map(e => (typeof e[field] === 'number' ? e[field] : null)),
+                        borderColor: color,
+                        backgroundColor: color.replace(', 1)', ', 0.1)'), // add slight fill
+                        pointRadius: 4,       // Larger point markers
+                        pointHoverRadius: 7,  // Bigger on hover
+                        borderWidth: 3,       // Thicker line
+                        fill: false,          // Use fill below line or not
+                        tension: 0,           // Straight lines (no smoothing)
+                        showLine: true
+                    };
+                });
+
+                // If no numeric fields, skip chart
+                if (!datasets.length) return;
+
+                // Make the chart
+                const ctx = document.getElementById(sensor + "Chart").getContext("2d");
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            tooltip: {
+                                enabled: true,
+                                mode: 'index',
+                                intersect: false
+                            },
+                            title: {
+                                display: true,
+                                text: sensor + ' Data over Time'
+                            },
+                            legend: {
+                                display: true,
+                                position: 'bottom'
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Timestamp (Log Order)'
+                                },
+                                ticks: {
+                                    maxRotation: 25,
+                                    autoSkip: false
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Value'
+                                },
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // Initialize charts once DOM content is loaded
+        window.addEventListener('DOMContentLoaded', createCharts);
+    </script>
+
+</body>
+</html>
+

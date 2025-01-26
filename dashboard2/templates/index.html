@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sensor Dashboard</title>
+  <!-- Load Chart.js from a CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Load our custom JS code (will fetch data, build charts) -->
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .chart-container {
+      width: 90%;
+      margin: 30px auto;
+    }
+    canvas {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+    }
+    .chart-title {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sensor Data Dashboard</h1>
+
+  <!-- We’ll dynamically create canvas elements for each sensor type via JavaScript -->
+
+  <div id="charts-area">
+    <!-- Chart canvases get inserted here by dashboard.js -->
+  </div>
+
+</body>
+</html>
+
