@@ -5,221 +5,183 @@
 #include <Wire.h>
 #include <Adafruit_BusIO_Register.h>
 #include <Adafruit_Sensor.h>
+#include <esp_wifi.h>
 
+// Network Configuration
 #define MESH_PREFIX "SafeHatMesh"
 #define MESH_PASSWORD "YourSecurePassword"
 #define MESH_PORT 5555
 
-const char* piSSID = "ESP_Mesh_Network";    // Raspberry Pi AP SSID
-const char* piPassword = "YourSecurePassword"; // Raspberry Pi AP Password
-const char* serverUrl = "http://192.168.4.1:5000/data"; // Flask server URL
+const char* piSSID = "ESP_Mesh_Network";
+const char* piPassword = "YourSecurePassword";
+const char* serverUrl = "http://192.168.4.1:5000/data";
 
+// Node Identification
+uint8_t baseMac[6];
+String nodeName;
+String fullMac;
+uint64_t chipId;
+
+// System State
 Scheduler userScheduler;
 painlessMesh mesh;
+bool isBridge = false;
+bool meshStarted = false;
+bool serverReachable = false;
+uint32_t currentBridgeId = 0;
+int32_t bestRSSI = -1000;
 
-bool isBridge = false;      // Flag to indicate if this node is the bridge
-bool meshStarted = false;   // Flag to indicate if the mesh has been started
-bool serverReachable = false; // Flag to indicate if the Raspberry Pi server is reachable
+// Initialize Node Identity
+void initNodeIdentity() {
+  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+  nodeName = "SafeHat-" + String(baseMac[4], HEX).substring(0,2) + 
+                        String(baseMac[5], HEX).substring(0,2);
+  fullMac = String(baseMac[0], HEX) + ":" + String(baseMac[1], HEX) + ":" +
+            String(baseMac[2], HEX) + ":" + String(baseMac[3], HEX) + ":" +
+            String(baseMac[4], HEX) + ":" + String(baseMac[5], HEX);
+  chipId = ESP.getEfuseMac();
+}
 
-// Node identification
-uint32_t chipId = ESP.getEfuseMac(); // Unique chip ID
-String nodeName = "Node" + String(chipId % 1000); // Short unique name (e.g., Node123)
+// Enhanced Logging System
+void logMessage(String message, String level = "INFO") {
+  String role = isBridge ? "BRIDGE" : "NODE";
+  String color = isBridge ? "\033[0;36m" : 
+               (level == "ERROR" ? "\033[0;31m" : "\033[0;32m");
+  
+  Serial.printf("%s[%s][%s][%s]\033[0m %s\n",
+    color.c_str(),
+    role.c_str(),
+    nodeName.c_str(),
+    level.c_str(),
+    message.c_str()
+  );
+}
 
-// Task to send periodic messages within the mesh
+// Task: Periodic Mesh Messages
 Task taskSendMessage(TASK_SECOND * 1, TASK_FOREVER, []() {
   if (meshStarted) {
     String msg = "Hello from " + nodeName;
-    Serial.printf("[%s][%s] Sending broadcast message: %s\n", 
-      (isBridge ? "BRIDGE" : "NODE"), 
-      nodeName.c_str(), 
-      msg.c_str()
-    );
+    logMessage("Sending broadcast: " + msg);
     mesh.sendBroadcast(msg);
   }
 });
 
-// Task to check server connectivity and elect a bridge node
+// Task: Server Connectivity & Bridge Election
 Task taskCheckServer(TASK_SECOND * 5, TASK_FOREVER, []() {
   if (!serverReachable) {
-    Serial.printf("[%s] Checking server connectivity...\n", nodeName.c_str());
-
-    // Attempt to connect to Raspberry Pi AP
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.printf("[%s] Connecting to Raspberry Pi AP...\n", nodeName.c_str());
-      WiFi.begin(piSSID, piPassword);
-      int retries = 0;
-      while (WiFi.status() != WL_CONNECTED && retries < 20) {
-        delay(500);
-        Serial.print(".");
-        retries++;
+    int32_t currentRSSI = WiFi.RSSI();
+    
+    if (currentRSSI > bestRSSI + 5) { // Hysteresis threshold
+      bestRSSI = currentRSSI;
+      if(WiFi.status() != WL_CONNECTED) {
+        WiFi.begin(piSSID, piPassword);
+        int retries = 0;
+        while (WiFi.status() != WL_CONNECTED && retries < 20) {
+          delay(500);
+          retries++;
+        }
       }
-      Serial.println();
+
+      if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        http.begin(serverUrl);
+        int httpResponseCode = http.GET();
+
+        if (httpResponseCode > 0) {
+          serverReachable = true;
+          isBridge = true;
+          currentBridgeId = mesh.getNodeId();
+          mesh.sendBroadcast("BRIDGE_ELECT:" + String(mesh.getNodeId()) + ":" + String(bestRSSI));
+          
+          if (!meshStarted) {
+            int channel = WiFi.channel();
+            mesh.init(MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT, WIFI_AP_STA, WIFI_AUTH_WPA2_PSK, channel);
+            meshStarted = true;
+          }
+        }
+        http.end();
+      }
+    }
+  }
+});
+
+// Task: Bridge Heartbeat
+Task taskBridgeHeartbeat(TASK_SECOND * 2, TASK_FOREVER, []() {
+  if(isBridge) {
+    mesh.sendBroadcast("BRIDGE_HB:" + String(mesh.getNodeId()));
+  }
+});
+
+// Task: Network Status Reporting
+Task taskLogTopology(TASK_SECOND * 30, TASK_FOREVER, []() {
+  String status = String("Nodes: ") + mesh.getNodeList().size() +
+                 " | RSSI: " + WiFi.RSSI() + " dBm" +
+                 " | Bridge: " + (isBridge ? nodeName : "None") +
+                 " | IP: " + WiFi.localIP().toString();
+  logMessage(status);
+});
+
+// Mesh Event Handlers
+void setupMeshCallbacks() {
+  mesh.onReceive([](uint32_t from, String &msg) {
+    logMessage("Received from " + String(from) + ": " + msg);
+
+    if (msg.startsWith("BRIDGE_ELECT")) {
+      uint32_t senderId = msg.substring(12, msg.indexOf(":")).toInt();
+      int32_t senderRSSI = msg.substring(msg.lastIndexOf(":")+1).toInt();
+      
+      if (senderRSSI > bestRSSI || (senderRSSI == bestRSSI && senderId < mesh.getNodeId())) {
+        bestRSSI = senderRSSI;
+        currentBridgeId = senderId;
+        if(isBridge) {
+          isBridge = false;
+          serverReachable = false;
+        }
+      }
     }
 
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.printf("[%s] Connected to Raspberry Pi AP. Checking server...\n", nodeName.c_str());
-
+    if (isBridge && serverReachable && !msg.startsWith("BRIDGE")) {
       HTTPClient http;
       http.begin(serverUrl);
-      int httpResponseCode = http.GET();
-
-      if (httpResponseCode > 0) {
-        Serial.printf("[%s] Server reachable. HTTP response code: %d\n", nodeName.c_str(), httpResponseCode);
-        serverReachable = true;
-        isBridge = true;  // This node is now the bridge
-
-        // Send an initial "Hello from {node id}" message to the server
-        Serial.printf("[%s] Sending initial message to server...\n", nodeName.c_str());
-        bool messageSent = false;
-        int retries = 0;
-
-        while (!messageSent && retries < 3) {
-          HTTPClient httpPost;
-          httpPost.begin(serverUrl);
-          httpPost.addHeader("Content-Type", "application/json");
-
-          String jsonData = "{\"node_id\": \"" + nodeName + "\", \"message\": \"Hello from " + nodeName + "\"}";
-          int httpResponseCode = httpPost.POST(jsonData);
-
-          if (httpResponseCode > 0) {
-            Serial.printf("[%s] Initial message sent. Server response: %d\n", nodeName.c_str(), httpResponseCode);
-            messageSent = true;
-          } else {
-            Serial.printf("[%s] Failed to send initial message: %s. Retrying...\n", nodeName.c_str(), http.errorToString(httpResponseCode).c_str());
-            retries++;
-            delay(1000); // Wait before retrying
-          }
-
-          httpPost.end();
-        }
-
-        if (!messageSent) {
-          Serial.printf("[%s] Failed to send initial message after retries.\n", nodeName.c_str());
-        }
-
-        // Start the mesh network once the server is confirmed
-        if (!meshStarted) {
-          Serial.printf("[%s] Starting mesh network...\n", nodeName.c_str());
-          int channel = WiFi.channel(); // Get Pi's AP channel
-          mesh.init(MESH_PREFIX, MESH_PASSWORD, &userScheduler, MESH_PORT, WIFI_AP_STA, WIFI_AUTH_WPA2_PSK, channel);
-          mesh.onReceive([](uint32_t from, String &msg) {
-            Serial.printf("[%s] Received message from %u: %s\n", nodeName.c_str(), from, msg.c_str());
-
-            // Forward messages to the server if this node is the bridge
-            if (isBridge && serverReachable) {
-              Serial.printf("[%s][BRIDGE] Forwarding message to server...\n", nodeName.c_str());
-              HTTPClient http;
-              http.begin(serverUrl);
-              http.addHeader("Content-Type", "application/json");
-
-              String jsonData = "{\"from\": \"" + String(from) + "\", \"message\": \"" + msg + "\"}";
-              int httpResponseCode = http.POST(jsonData);
-
-              if (httpResponseCode > 0) {
-                Serial.printf("[%s][BRIDGE] Forwarded message to server: %s\n", nodeName.c_str(), jsonData.c_str());
-              } else {
-                Serial.printf("[%s][BRIDGE] Failed to send message to server: %s\n", nodeName.c_str(), http.errorToString(httpResponseCode).c_str());
-              }
-
-              http.end();
-            }
-          });
-          mesh.onNewConnection([](uint32_t nodeId) {
-            Serial.printf("[%s] New connection: %u\n", nodeName.c_str(), nodeId);
-          });
-          mesh.onChangedConnections([]() {
-            Serial.printf("[%s] Mesh connections changed. Total nodes: %d\n", nodeName.c_str(), mesh.getNodeList().size());
-
-            // If this node is the bridge and loses connection to the server, relinquish bridge role
-            if (isBridge && !serverReachable) {
-              Serial.printf("[%s][BRIDGE] Lost server connection. Relinquishing bridge role.\n", nodeName.c_str());
-              isBridge = false;
-            }
-
-            // If no bridge exists, elect a new one
-            if (!isBridge) {
-              Serial.printf("[%s] Electing new bridge node...\n", nodeName.c_str());
-              // Logic to elect a new bridge (e.g., based on node ID or signal strength)
-              // For now, this node will take over as bridge
-              isBridge = true;
-              serverReachable = true;
-            }
-          });
-          mesh.onNodeTimeAdjusted([](int32_t offset) {
-            Serial.printf("[%s] Adjusted time %u. Offset = %d\n", nodeName.c_str(), mesh.getNodeTime(), offset);
-          });
-          mesh.onNodeDelayReceived([](uint32_t nodeId, int32_t delay) {
-            Serial.printf("[%s] Delay to node %u is %d us\n", nodeName.c_str(), nodeId, delay);
-          });
-          meshStarted = true;
-        }
-      } else {
-        Serial.printf("[%s] Server not reachable. HTTP error: %s\n", nodeName.c_str(), http.errorToString(httpResponseCode).c_str());
-      }
+      http.addHeader("Content-Type", "application/json");
+      String jsonData = "{\"from\": \"" + String(from) + "\", \"message\": \"" + msg + "\"}";
+      int httpResponseCode = http.POST(jsonData);
       http.end();
-    } else {
-      Serial.printf("[%s] Failed to connect to Raspberry Pi AP.\n", nodeName.c_str());
     }
-  }
-});
+  });
 
-// Task for the bridge to forward messages to the server
-Task taskBridgeForward(TASK_SECOND * 10, TASK_FOREVER, []() {
-  if (isBridge && serverReachable) {
-    Serial.printf("[%s][BRIDGE] Sending bridge heartbeat...\n", nodeName.c_str());
-    HTTPClient http;
-    http.begin(serverUrl);
-    http.addHeader("Content-Type", "application/json");
-
-    String jsonData = "{\"node_id\": \"" + nodeName + "\", \"status\": \"bridge_heartbeat\"}";
-    int httpResponseCode = http.POST(jsonData);
-
-    if (httpResponseCode > 0) {
-      Serial.printf("[%s][BRIDGE] Bridge heartbeat sent. Server response: %d\n", nodeName.c_str(), httpResponseCode);
-    } else {
-      Serial.printf("[%s][BRIDGE] Failed to send bridge heartbeat: %s\n", nodeName.c_str(), http.errorToString(httpResponseCode).c_str());
-    }
-
-    http.end();
-  }
-});
-
-// Task to log mesh topology periodically
-Task taskLogTopology(TASK_SECOND * 30, TASK_FOREVER, []() {
-  Serial.printf("[%s] Connected nodes: %d\n", nodeName.c_str(), mesh.getNodeList().size());
-});
-
-// Setup function
-void setup() {
-  Serial.begin(115200);
-  Serial.printf("[%s] Setup started...\n", nodeName.c_str());
-
-  WiFi.mode(WIFI_STA); // Start in Station mode
-  WiFi.disconnect();
-
-  // Add tasks to the scheduler
-  userScheduler.addTask(taskSendMessage);
-  taskSendMessage.enable();
-
-  userScheduler.addTask(taskCheckServer);
-  taskCheckServer.enable();
-
-  userScheduler.addTask(taskBridgeForward);
-  taskBridgeForward.enable();
-
-  userScheduler.addTask(taskLogTopology);
-  taskLogTopology.enable();
-
-  // Set debug message types (optional)
-  mesh.setDebugMsgTypes(ERROR | MESH_STATUS | CONNECTION | SYNC | COMMUNICATION | GENERAL | MSG_TYPES | REMOTE);
-
-  Serial.printf("[%s] Setup completed.\n", nodeName.c_str());
+  mesh.onChangedConnections([]() {
+    logMessage("Connections changed. Total nodes: " + String(mesh.getNodeList().size()));
+  });
 }
 
-// Loop function
+void setup() {
+  Serial.begin(115200);
+  initNodeIdentity();
+  logMessage("Initializing SafeHat node...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  // Initialize tasks
+  userScheduler.addTask(taskSendMessage);
+  userScheduler.addTask(taskCheckServer);
+  userScheduler.addTask(taskBridgeHeartbeat);
+  userScheduler.addTask(taskLogTopology);
+  
+  taskSendMessage.enable();
+  taskCheckServer.enable();
+  taskBridgeHeartbeat.enable();
+  taskLogTopology.enable();
+
+  setupMeshCallbacks();
+  
+  logMessage("Setup complete. Node ready.");
+}
+
 void loop() {
   if (meshStarted) {
     mesh.update();
   }
-  userScheduler.execute(); // Ensure scheduler runs
+  userScheduler.execute();
 }
