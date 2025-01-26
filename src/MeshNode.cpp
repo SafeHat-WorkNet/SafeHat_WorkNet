@@ -6,20 +6,30 @@ bool MeshNode::meshStarted = false;
 String MeshNode::nodeName = "";
 painlessMesh MeshNode::mesh;
 Scheduler MeshNode::userScheduler;
+volatile bool MeshNode::triggerFlag = false;
 
 // Constants initialization
 const char* MeshNode::MESH_PREFIX = "SafeHatMesh";
 const char* MeshNode::MESH_PASSWORD = "YourSecurePassword";
 const int MeshNode::MESH_PORT = 5555;
 
-MeshNode::MeshNode() {
+MeshNode::MeshNode() : 
+    ledState(false),
+    dht(4)     // DHT22 on pin 4 (DHT_PIN from SensorConfig.h)
+{
     instance = this;
-    ledState = false;
 }
 
 void MeshNode::init() {
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
+    
+    // Initialize trigger pin and interrupt
+    setupInterrupt();
+    
+    // Initialize sensors
+    Wire.begin();  // Start I2C bus
+    dht.begin();
     
     initNodeIdentity();
     logMessage("Initializing SafeHat node...");
@@ -38,6 +48,11 @@ void MeshNode::init() {
 void MeshNode::update() {
     if (meshStarted) {
         mesh.update();
+        // Check and clear the trigger flag if set
+        if (triggerFlag) {
+            sendSensorDataToServer();
+            triggerFlag = false;
+        }
     }
 }
 
@@ -94,4 +109,37 @@ void MeshNode::onReceiveCallback(uint32_t from, String &msg) {
 void MeshNode::onChangedConnectionsCallback() {
     if (!instance) return;
     instance->logMessage("Connections changed. Total nodes: " + String(mesh.getNodeList().size()));
+}
+
+void MeshNode::setupInterrupt() {
+    pinMode(TRIGGER_PIN, INPUT);
+    attachInterrupt(digitalPinToInterrupt(TRIGGER_PIN), handleTriggerInterrupt, RISING);
+}
+
+void IRAM_ATTR MeshNode::handleTriggerInterrupt() {
+    triggerFlag = true;
+}
+
+void MeshNode::sendSensorDataToServer() {
+    StaticJsonDocument<512> doc;
+    doc["node"] = nodeName;
+    doc["type"] = "sensor_data";
+    doc["timestamp"] = mesh.getNodeTime();
+    
+    JsonObject sensorData = doc.createNestedObject("data");
+    
+    // Get sensor data from DHT22
+    if (dht.isReady()) {
+        String dhtData = dht.getJsonString();
+        StaticJsonDocument<200> dhtDoc;
+        deserializeJson(dhtDoc, dhtData);
+        sensorData["dht22"] = dhtDoc.as<JsonObject>();
+    }
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    // Send to all nodes (they will forward to server if they have connection)
+    mesh.sendBroadcast(jsonString);
+    logMessage("Sensor data sent: " + jsonString);
 } 
