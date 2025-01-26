@@ -1,0 +1,44 @@
+| CJMCU-4232 Pin | ESP32 Pin | JTAG Signal            |
+|----------------|-----------|------------------------|
+| AD0            | D13       | TCK (Test Clock)       |
+| AD1            | D12       | TDI (Test Data In)     |
+| AD2            | D15       | TDO (Test Data Out)    |
+| AD3            | D14       | TMS (Test Mode Select) |
+| GND            | GND       | Ground                 |
+| 3V3            | 3V3       | Power                  |
+
+openocd -f board/esp32-wrover-kit-3.3v.cfg -c "ftdi vid_pid 0x<VID> 0x<PID>"
+
+
+bsikar@Brightons-MacBook-Air SafeHat_WorkNet% lsusb
+Bus 000 Device 001: ID 05e3:0626 Genesys Logic, Inc. USB3.1 Hub
+Bus 000 Device 002: ID 05e3:0610 Genesys Logic, Inc. USB2.1 Hub
+Bus 000 Device 003: ID 10c4:ea60 Silicon Laboratories, Inc. CP2102 USB to UART Bridge Controller  Serial: 0001
+Bus 000 Device 004: ID 0403:6011 Future Technology Devices International Limited Quad RS232-HS
+Bus 000 Device 000: ID 05e3:0626 Genesys Logic, Inc. USB 3.1 Bus
+Bus 000 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+bsikar@Brightons-MacBook-Air SafeHat_WorkNet % openocd -f board/esp32-wrover-kit-3.3v.cfg -c "ftdi_vid_pid 0x0403 0x6011"
+
+Open On-Chip Debugger v0.12.0-esp32-20241016 (2024-10-16-14:27)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+DEPRECATED! use 'ftdi vid_pid' not 'ftdi_vid_pid'
+Info : Listening on port 6666 for tcl connections
+Info : Listening on port 4444 for telnet connections
+Info : ftdi: if you experience problems at higher adapter clocks, try the command "ftdi tdo_sample_edge falling"
+Info : clock speed 20000 kHz
+Info : JTAG tap: esp32.tap0 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
+Info : JTAG tap: esp32.tap1 tap/device found: 0x120034e5 (mfg: 0x272 (Tensilica), part: 0x2003, ver: 0x1)
+Info : [esp32.cpu0] Examination succeed
+Info : [esp32.cpu1] Examination succeed
+Info : [esp32.cpu0] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+Info : [esp32.cpu0] Debug controller was reset.
+Info : [esp32.cpu0] Core was reset.
+Info : [esp32.cpu1] Debug controller was reset.
+Info : [esp32.cpu1] Core was reset.
+Info : [esp32.cpu0] Target halted, PC=0x400852EA, debug_reason=00000000
+Info : [esp32.cpu0] Reset cause (1) - (Power on reset)
+Info : [esp32.cpu1] Target halted, PC=0x400852EA, debug_reason=00000000
+Info : [esp32.cpu1] Reset cause (14) - (CPU1 reset by CPU0)
