@@ -1,28 +1,32 @@
 #include "TaskManager.h"
 
-TaskManager::TaskManager(MeshNode& node) : meshNode(node),
-    taskSendMessage(TASK_SECOND * 1, TASK_FOREVER, std::bind(&MeshNode::sendMessage, &meshNode)),
-    taskCheckServer(TASK_SECOND * 5, TASK_FOREVER, std::bind(&MeshNode::checkServer, &meshNode)),
-    taskBridgeHeartbeat(TASK_SECOND * 1, TASK_FOREVER, std::bind(&MeshNode::sendBridgeHeartbeat, &meshNode)),
-    taskLogTopology(TASK_SECOND * 30, TASK_FOREVER, std::bind(&MeshNode::logTopology, &meshNode)) {
+// Initialize static member
+MeshNode* TaskManager::currentNode = nullptr;
+
+// Static callbacks
+void TaskManager::checkServerCallback() {
+    if (currentNode) currentNode->checkServer();
 }
 
-void TaskManager::init() {
-    setupTasks();
+void TaskManager::logTopologyCallback() {
+    if (currentNode) currentNode->logTopology();
 }
 
-void TaskManager::execute() {
-    MeshNode::getScheduler().execute();
-}
-
-void TaskManager::setupTasks() {
-    MeshNode::getScheduler().addTask(taskSendMessage);
-    MeshNode::getScheduler().addTask(taskCheckServer);
-    MeshNode::getScheduler().addTask(taskBridgeHeartbeat);
-    MeshNode::getScheduler().addTask(taskLogTopology);
-
-    taskSendMessage.enable();
+TaskManager::TaskManager(MeshNode& node) : 
+    taskCheckServer(CHECK_SERVER_INTERVAL, TASK_FOREVER, &checkServerCallback),
+    taskLogTopology(LOG_TOPOLOGY_INTERVAL, TASK_FOREVER, &logTopologyCallback)
+{
+    currentNode = &node;
+    
+    // Add tasks to scheduler
+    scheduler.addTask(taskCheckServer);
+    scheduler.addTask(taskLogTopology);
+    
+    // Enable tasks
     taskCheckServer.enable();
-    taskBridgeHeartbeat.enable();
     taskLogTopology.enable();
+}
+
+void TaskManager::update() {
+    scheduler.execute();
 } 

@@ -1,4 +1,5 @@
 #include "SensorManager.h"
+#include <TaskScheduler.h>
 
 SensorManager::SensorManager(MeshNode& node) : 
     meshNode(node),
@@ -56,6 +57,11 @@ SensorManager::SensorManager(MeshNode& node) :
 
 void SensorManager::init() {
     Wire.begin();
+    
+    // Setup trigger pin
+    pinMode(TRIGGER_PIN, INPUT);
+    lastTriggerState = digitalRead(TRIGGER_PIN);
+    
     setupSensors();
     
     // Add and enable tasks
@@ -69,6 +75,23 @@ void SensorManager::init() {
 
 void SensorManager::update() {
     scheduler.execute();
+    checkTrigger();
+}
+
+void SensorManager::checkTrigger() {
+    bool currentState = digitalRead(TRIGGER_PIN);
+    
+    // Detect rising edge (LOW to HIGH transition)
+    if (currentState && !lastTriggerState) {
+        // Read all sensors immediately
+        readMPU();
+        readDHT();
+        readLight();
+        // Send the data
+        sendSensorData();
+    }
+    
+    lastTriggerState = currentState;
 }
 
 void SensorManager::setupSensors() {
@@ -88,45 +111,69 @@ void SensorManager::setupSensors() {
 }
 
 void SensorManager::readMPU() {
+    if (!mpu.begin()) {
+        Serial.println("Failed to find MPU6050 chip");
+        // Set values to null (NAN in C++)
+        sensorData.accelerometer.x = NAN;
+        sensorData.accelerometer.y = NAN;
+        sensorData.accelerometer.z = NAN;
+        sensorData.gyroscope.x = NAN;
+        sensorData.gyroscope.y = NAN;
+        sensorData.gyroscope.z = NAN;
+        return;
+    }
+    
     mpu.getEvent(&sensorData.accel, &sensorData.gyro, &sensorData.temp);
-    sendSensorData();
+    sensorData.updateFromSensorEvents();
 }
 
 void SensorManager::readDHT() {
-    sensorData.temperature = dht.readTemperature();
-    sensorData.humidity = dht.readHumidity();
-    if (isnan(sensorData.temperature) || isnan(sensorData.humidity)) {
-        Serial.println("Failed to read from DHT sensor!");
-        return;
-    }
-    sendSensorData();
+    float humidity = dht.readHumidity();
+    float temp = dht.readTemperature();
+    
+    sensorData.humidity = isnan(humidity) ? NAN : humidity;
+    sensorData.temperature = isnan(temp) ? NAN : temp;
 }
 
 void SensorManager::readLight() {
-    sensorData.light = lightMeter.readLightLevel();
-    if (sensorData.light < 0) {
-        Serial.println("Failed to read from BH1750 sensor!");
+    if (!lightMeter.begin()) {
+        Serial.println("Failed to find BH1750 light sensor");
+        sensorData.light = NAN;
         return;
     }
-    sendSensorData();
+    
+    float light = lightMeter.readLightLevel();
+    sensorData.light = light < 0 ? NAN : light;
+    // Don't automatically send data here anymore
+    // Only send when triggered or when all sensors have been read
 }
 
 void SensorManager::sendSensorData() {
-    StaticJsonDocument<200> doc;
-    
+    DynamicJsonDocument doc(512);
+    doc["type"] = "sensor_data";
     doc["node_id"] = meshNode.getNodeName();
-    doc["temperature"] = sensorData.temperature;
-    doc["humidity"] = sensorData.humidity;
-    doc["light"] = sensorData.light;
-    doc["accel_x"] = sensorData.accel.acceleration.x;
-    doc["accel_y"] = sensorData.accel.acceleration.y;
-    doc["accel_z"] = sensorData.accel.acceleration.z;
-    doc["gyro_x"] = sensorData.gyro.gyro.x;
-    doc["gyro_y"] = sensorData.gyro.gyro.y;
-    doc["gyro_z"] = sensorData.gyro.gyro.z;
+    doc["timestamp"] = millis();
+
+    JsonObject data = doc.createNestedObject("data");
     
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    MeshNode::getMesh().sendBroadcast(jsonString);
+    // Only add values if they are not NAN
+    if (!isnan(sensorData.temperature)) data["temperature"] = sensorData.temperature;
+    if (!isnan(sensorData.humidity)) data["humidity"] = sensorData.humidity;
+    if (!isnan(sensorData.light)) data["light"] = sensorData.light;
+
+    // Add accelerometer data
+    JsonObject accel = data.createNestedObject("accelerometer");
+    if (!isnan(sensorData.accelerometer.x)) accel["x"] = sensorData.accelerometer.x;
+    if (!isnan(sensorData.accelerometer.y)) accel["y"] = sensorData.accelerometer.y;
+    if (!isnan(sensorData.accelerometer.z)) accel["z"] = sensorData.accelerometer.z;
+
+    // Add gyroscope data
+    JsonObject gyro = data.createNestedObject("gyroscope");
+    if (!isnan(sensorData.gyroscope.x)) gyro["x"] = sensorData.gyroscope.x;
+    if (!isnan(sensorData.gyroscope.y)) gyro["y"] = sensorData.gyroscope.y;
+    if (!isnan(sensorData.gyroscope.z)) gyro["z"] = sensorData.gyroscope.z;
+
+    String output;
+    serializeJson(doc, output);
+    meshNode.getMesh().sendBroadcast(output);
 } 

@@ -9,8 +9,15 @@
 #include "MeshNode.h"
 #include "SensorConfig.h"
 
+// Forward declare TaskScheduler classes to avoid multiple definition errors
+class Task;
+class Scheduler;
+
 class SensorManager {
 public:
+    static constexpr uint8_t TRIGGER_PIN = 13;  // D13 pin for triggering data send
+    static constexpr int NUM_SENSORS = 3;
+    
     SensorManager(MeshNode& node);
     void init();
     void update();
@@ -37,9 +44,14 @@ private:
     void readLight();
     
     // Array of sensor configurations
-    static const int NUM_SENSORS = 3;
     SensorConfig sensors[NUM_SENSORS];
     
     // Task array
     Task* sensorTasks[NUM_SENSORS];
+    
+    // Last trigger state
+    bool lastTriggerState = false;
+    
+    // Methods
+    void checkTrigger();
 }; 

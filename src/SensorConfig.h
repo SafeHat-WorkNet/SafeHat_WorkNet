@@ -6,23 +6,10 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <BH1750.h>
+#include "SharedTypes.h"
 
 // Forward declaration
 class SensorManager;
-
-struct SensorData {
-    // MPU6050 data
-    sensors_event_t accel;
-    sensors_event_t gyro;
-    sensors_event_t temp;
-    
-    // DHT data
-    float temperature = 0;
-    float humidity = 0;
-    
-    // BH1750 data
-    float light = 0;
-};
 
 struct SensorConfig {
     const char* name;                    // Sensor name for identification
