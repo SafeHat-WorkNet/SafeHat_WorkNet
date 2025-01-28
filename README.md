@@ -8,7 +8,14 @@
 <!-- Project Logo -->
 <img src="images/logo.jpg" width="400" alt="SafeHat WorkNet Logo">
 
-## Meet Our Team
+## Award Recognition 🏆
+
+We're thrilled to announce that SafeHat WorkNet won the **IoT Hardware Hack** award at **TAMUHACK25**!
+
+<img src="images/team_judge.JPG" width="400" alt="Team at TAMUHACK25">
+<img src="images/team_award_pic.HEIC" width="400" alt="Team with Award">
+
+## The Team
 
 | Member | Role & Contributions | LinkedIn |
 |--------|---------------------|----------|
