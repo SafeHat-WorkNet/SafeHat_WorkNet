@@ -8,8 +8,6 @@
 <!-- Project Logo -->
 <img src="images/logo.jpg" width="400" alt="SafeHat WorkNet Logo">
 
-## Hackathon Project: [Hackathon Name] - [Date]
-
 ## Meet Our Team
 
 | Member | Role & Contributions | LinkedIn |
