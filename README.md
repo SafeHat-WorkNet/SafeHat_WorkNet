@@ -149,3 +149,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Demo Video
 
 [![Watch the Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=vBt0FM6a5Xo)
+
+## Hackathon Judging Presentation
+
+[![View Presentation](https://img.shields.io/badge/View-Presentation-blue?style=for-the-badge&logo=google-slides)](https://docs.google.com/presentation/d/1uGHaowCKbS7TP8FWVLASV4u9dFNWVzn1LIxpbfhxSxU/edit?usp=sharing)
