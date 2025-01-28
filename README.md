@@ -12,8 +12,10 @@
 
 We're thrilled to announce that SafeHat WorkNet won the **IoT Hardware Hack** award at **TAMUHACK25**!
 
-<img src="images/team_judge.JPG" width="400" alt="Team at TAMUHACK25">
-<img src="images/team_award_pic.HEIC" width="400" alt="Team with Award">
+<div style="display: flex; justify-content: space-between;">
+    <img src="images/team_judge.JPG" width="400" alt="Team at TAMUHACK25">
+    <img src="images/team_award_pic.HEIC" width="400" alt="Team with Award">
+</div>
 
 ## The Team
 
